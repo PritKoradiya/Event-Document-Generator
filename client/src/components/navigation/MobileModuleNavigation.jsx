@@ -33,33 +33,33 @@ function MobileModuleNavigation({ module = "certificate" }) {
   let title = "Certificate Studio";
   let badgeText = "CS";
   let badgeBg = "bg-blue-600";
-  let activeClass = "bg-gradient-to-r from-blue-600 to-indigo-600 text-white";
+  let activeClass = "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25";
 
   if (module === "report") {
     items = reportNavItems;
     title = "Report Studio";
     badgeText = "RS";
     badgeBg = "bg-purple-600";
-    activeClass = "bg-gradient-to-r from-purple-600 to-pink-600 text-white";
+    activeClass = "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-purple-500/25";
   } else if (module === "attendance") {
     items = attendanceNavItems;
     title = "Attendance Studio";
     badgeText = "AS";
     badgeBg = "bg-teal-600";
-    activeClass = "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white";
+    activeClass = "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-md shadow-teal-500/25";
   }
 
   return (
-    <div className="lg:hidden w-full mb-4">
+    <div className="lg:hidden w-full mb-4 relative z-40">
       {/* Mobile Top Bar */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-md backdrop-blur-lg">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-950/85 p-3 shadow-xl backdrop-blur-xl">
         <div className="flex items-center gap-2.5">
           <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${badgeBg} text-white font-black text-xs shadow-sm`}>
             {badgeText}
           </span>
           <div>
-            <h2 className="text-sm font-black text-slate-900 leading-none">{title}</h2>
-            <p className="text-[11px] font-semibold text-slate-500 mt-0.5">Workspace Navigation</p>
+            <h2 className="text-sm font-black text-slate-100 leading-none">{title}</h2>
+            <p className="text-[11px] font-semibold text-slate-400 mt-0.5">Workspace Navigation</p>
           </div>
         </div>
 
@@ -68,7 +68,7 @@ function MobileModuleNavigation({ module = "certificate" }) {
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 transition hover:bg-slate-800"
             aria-label="Toggle Navigation Menu"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -84,7 +84,7 @@ function MobileModuleNavigation({ module = "certificate" }) {
 
       {/* Mobile Slide-Over Drawer */}
       {isOpen && (
-        <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl space-y-2 animate-hero-fade-in">
+        <div className="mt-2 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-4 shadow-2xl space-y-2 animate-hero-fade-in backdrop-blur-2xl">
           <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
             {title} Menu
           </p>
@@ -98,7 +98,7 @@ function MobileModuleNavigation({ module = "certificate" }) {
                   `flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-bold transition ${
                     isActive
                       ? activeClass
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                      : "text-slate-300 hover:bg-slate-900 hover:text-white"
                   }`
                 }
               >

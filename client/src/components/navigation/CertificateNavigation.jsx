@@ -81,19 +81,19 @@ function CertificateNavigation() {
 
   return (
     <aside
-      className={`hidden lg:flex flex-col shrink-0 sticky top-24 z-20 transition-all duration-300 ${
+      className={`hidden lg:flex flex-col shrink-0 sticky top-24 z-30 transition-all duration-300 ${
         isCollapsed ? "w-20" : "w-64"
       }`}
     >
-      <div className="flex flex-col gap-2 rounded-3xl border border-blue-200/60 bg-white/90 p-3.5 shadow-xl backdrop-blur-xl transition-all">
+      <div className="flex flex-col gap-2 rounded-3xl border border-blue-500/25 bg-slate-950/85 p-3.5 shadow-2xl shadow-blue-950/50 backdrop-blur-xl transition-all">
         {/* Rail Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-blue-100/70 mb-1">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/80 mb-1">
           {!isCollapsed && (
             <div className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-black shadow-sm">
+              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-xs font-black shadow-md shadow-blue-600/30">
                 CS
               </span>
-              <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-200">
                 Certificate Studio
               </span>
             </div>
@@ -101,7 +101,7 @@ function CertificateNavigation() {
           <button
             type="button"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className={`p-1.5 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition ${
+            className={`p-1.5 rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-slate-800/60 transition ${
               isCollapsed ? "mx-auto" : ""
             }`}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -126,8 +126,8 @@ function CertificateNavigation() {
               className={({ isActive }) =>
                 `group relative flex items-center gap-3.5 rounded-2xl px-3.5 py-2.5 text-xs font-bold transition-all duration-300 ${
                   isActive
-                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-md shadow-blue-500/25"
-                    : "text-slate-600 hover:bg-blue-50/80 hover:text-blue-700"
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-blue-500/30"
+                    : "text-slate-300 hover:bg-blue-500/10 hover:text-cyan-300"
                 }`
               }
               title={isCollapsed ? item.name : undefined}
@@ -137,7 +137,7 @@ function CertificateNavigation() {
                   {isActive && (
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-cyan-300 shadow-sm" />
                   )}
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-transform duration-300 ${isActive ? "text-white" : "text-blue-600 group-hover:scale-110"}`}>
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-transform duration-300 ${isActive ? "text-white" : "text-blue-400 group-hover:scale-110"}`}>
                     {item.icon}
                   </span>
                   {!isCollapsed && <span className="truncate font-sans">{item.name}</span>}

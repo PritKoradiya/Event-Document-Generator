@@ -5,7 +5,7 @@ import Footer from "../components/Footer.jsx";
 
 function ReportLayout() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between selection:bg-purple-500 selection:text-white">
+    <div className="min-h-screen bg-transparent text-slate-900 flex flex-col justify-between selection:bg-purple-500 selection:text-white">
       {/* Top Main Workspace Wrapper */}
       <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8">
         {/* Mobile Navigation Drawer Bar */}

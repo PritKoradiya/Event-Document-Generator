@@ -1,11 +1,9 @@
 import { Outlet } from "react-router-dom";
-import AnimatedBackground from "../components/ui/AnimatedBackground.jsx";
 import { brandingData } from "../data/brandingData.js";
 
 function LandingLayout() {
   return (
-    <div className="relative min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between overflow-x-hidden">
-      <AnimatedBackground />
+    <div className="relative min-h-screen bg-transparent text-slate-100 flex flex-col justify-between overflow-x-hidden">
 
       {/* Landing Header */}
       <header className="relative z-20 w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl">
