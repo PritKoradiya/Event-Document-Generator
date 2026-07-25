@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 
 function BackgroundSettingsToggle() {
-  const [mode, setMode] = useState(() => {
+  const getNormalizedMode = () => {
     try {
-      return localStorage.getItem("eventDocumentBackgroundMode") || "full";
+      const saved = localStorage.getItem("eventDocumentBackgroundMode");
+      return ["full", "reduced", "off"].includes(saved) ? saved : "full";
     } catch {
       return "full";
     }
-  });
+  };
 
+  const [mode, setMode] = useState(getNormalizedMode);
+  const [videoStatus, setVideoStatus] = useState("Loading");
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -22,6 +25,19 @@ function BackgroundSettingsToggle() {
     }
     setIsOpen(false);
   };
+
+  // Listen to video status updates from GalaxyBackground (DEV diagnostic badge)
+  useEffect(() => {
+    const handleStatusChange = (e) => {
+      if (e.detail?.status) {
+        setVideoStatus(e.detail.status);
+      }
+    };
+    window.addEventListener("galaxyVideoStatusChange", handleStatusChange);
+    return () => {
+      window.removeEventListener("galaxyVideoStatusChange", handleStatusChange);
+    };
+  }, []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -43,7 +59,32 @@ function BackgroundSettingsToggle() {
   };
 
   return (
-    <div className="relative inline-block text-left" ref={menuRef}>
+    <div className="relative inline-flex items-center gap-2 text-left" ref={menuRef}>
+      {/* DEV Video Status Diagnostic Badge (Rendered ONLY in DEV mode) */}
+      {import.meta.env.DEV && (
+        <span
+          className={`hidden md:inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold border transition ${
+            videoStatus === "Playing"
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+              : videoStatus === "Loading"
+              ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+              : "border-slate-700 bg-slate-900 text-slate-400"
+          }`}
+          title="Video Playback Status (Dev Mode Only)"
+        >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              videoStatus === "Playing"
+                ? "bg-emerald-400 animate-pulse"
+                : videoStatus === "Loading"
+                ? "bg-amber-400 animate-ping"
+                : "bg-slate-400"
+            }`}
+          />
+          Video: {videoStatus}
+        </span>
+      )}
+
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -64,7 +105,7 @@ function BackgroundSettingsToggle() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-2xl z-50 animate-hero-fade-in">
+        <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-2xl z-50 animate-hero-fade-in">
           <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1">
             Animated Background
           </div>
@@ -91,7 +132,7 @@ function BackgroundSettingsToggle() {
                   : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
               }`}
             >
-              <span>Reduced (Canvas Stars Only)</span>
+              <span>Reduced (Stars Only)</span>
               {mode === "reduced" && <span className="text-cyan-400">✓</span>}
             </button>
 

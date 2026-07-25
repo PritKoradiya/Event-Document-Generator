@@ -9,14 +9,16 @@ function GalaxyBackground({ variant }) {
   const location = useLocation();
   const reducedMotion = useReducedMotion();
 
-  // Video State
+  // Video State Diagnostics
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(true);
 
   // Background Mode State ("full" | "reduced" | "off")
   const [bgMode, setBgMode] = useState(() => {
     try {
-      return localStorage.getItem("eventDocumentBackgroundMode") || "full";
+      const saved = localStorage.getItem("eventDocumentBackgroundMode");
+      return ["full", "reduced", "off"].includes(saved) ? saved : "full";
     } catch {
       return "full";
     }
@@ -32,13 +34,15 @@ function GalaxyBackground({ variant }) {
   const parallaxTargetRef = useRef({ x: 0, y: 0 });
   const parallaxCurrentRef = useRef({ x: 0, y: 0 });
 
-  // Listen for local background mode changes
+  // Listen for background mode changes
   useEffect(() => {
     const handleBgModeChange = () => {
       try {
-        const currentMode =
-          localStorage.getItem("eventDocumentBackgroundMode") || "full";
-        setBgMode(currentMode);
+        const saved = localStorage.getItem("eventDocumentBackgroundMode");
+        const normalized = ["full", "reduced", "off"].includes(saved)
+          ? saved
+          : "full";
+        setBgMode(normalized);
       } catch {
         setBgMode("full");
       }
@@ -52,6 +56,22 @@ function GalaxyBackground({ variant }) {
       window.removeEventListener("storage", handleBgModeChange);
     };
   }, []);
+
+  // Broadcast video status changes for DEV environment diagnostics
+  useEffect(() => {
+    let status = "Loading";
+    if (bgMode === "off" || bgMode === "reduced" || videoFailed) {
+      status = "Fallback";
+    } else if (videoReady && !videoFailed) {
+      status = "Playing";
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("galaxyVideoStatusChange", {
+        detail: { status, videoReady, videoFailed, videoLoading, bgMode }
+      })
+    );
+  }, [videoReady, videoFailed, videoLoading, bgMode]);
 
   // Infer variant from route if not explicitly passed
   const activeVariant = useMemo(() => {
@@ -115,32 +135,29 @@ function GalaxyBackground({ variant }) {
     };
   }, [isDesktop, reducedMotion, bgMode]);
 
-  // Safely start video playback when mounted & ready
+  // Autoplay video safely on component mount
   useEffect(() => {
-    if (bgMode !== "full" || reducedMotion || videoFailed) return;
-
     const video = videoRef.current;
     if (!video) return;
 
     video.muted = true;
+    video.defaultMuted = true;
+    video.loop = true;
+    video.playsInline = true;
 
-    const playVideo = async () => {
+    const startVideo = async () => {
       try {
         await video.play();
-      } catch (err) {
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn("Muted galaxy autoplay could not start:", error);
+        }
         setVideoFailed(true);
       }
     };
 
-    playVideo();
-  }, [videoReady, bgMode, reducedMotion, videoFailed]);
-
-  // Handle video error fallback logging in DEV mode
-  useEffect(() => {
-    if (import.meta.env.DEV && videoFailed) {
-      console.warn("Galaxy video unavailable. Canvas fallback is active.");
-    }
-  }, [videoFailed]);
+    startVideo();
+  }, []);
 
   // Canvas Star Field Render Engine
   useEffect(() => {
@@ -357,7 +374,7 @@ function GalaxyBackground({ variant }) {
       }
     };
 
-    // Render single frame if reduced motion or tab hidden, else start loop
+    // Render single frame if reduced motion, else start loop
     if (reducedMotion) {
       render();
     } else {
@@ -437,7 +454,10 @@ function GalaxyBackground({ variant }) {
       className={`galaxy-background galaxy-background--${activeVariant} galaxy-background--mode-${bgMode}`}
       aria-hidden="true"
     >
-      {/* 1. Video Layer (Optional / Full Mode) */}
+      {/* Layer 0: Base Gradient */}
+      <div className="galaxy-base-gradient" />
+
+      {/* Layer 1: Video Layer */}
       {bgMode === "full" && !reducedMotion && !videoFailed && (
         <video
           ref={videoRef}
@@ -448,14 +468,47 @@ function GalaxyBackground({ variant }) {
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           poster="/backgrounds/galaxy-poster.webp"
           tabIndex={-1}
-          onCanPlay={() => setVideoReady(true)}
-          onLoadedData={() => setVideoReady(true)}
-          onError={() => {
+          aria-hidden="true"
+          onLoadStart={() => setVideoLoading(true)}
+          onLoadedMetadata={() => {
+            if (import.meta.env.DEV) {
+              console.log("Galaxy video metadata loaded");
+            }
+          }}
+          onLoadedData={() => {
+            setVideoLoading(false);
+            setVideoReady(true);
+            setVideoFailed(false);
+          }}
+          onCanPlay={() => {
+            setVideoLoading(false);
+            setVideoReady(true);
+            setVideoFailed(false);
+          }}
+          onPlaying={() => {
+            setVideoReady(true);
+            setVideoFailed(false);
+            if (import.meta.env.DEV) {
+              console.log(
+                "Galaxy video playing:",
+                videoRef.current?.currentSrc
+              );
+            }
+          }}
+          onError={(event) => {
+            setVideoLoading(false);
             setVideoReady(false);
             setVideoFailed(true);
+            if (import.meta.env.DEV) {
+              console.warn(
+                "Galaxy video failed:",
+                event.currentTarget.error,
+                event.currentTarget.currentSrc
+              );
+            }
           }}
         >
           <source src="/backgrounds/galaxy-loop.webm" type="video/webm" />
@@ -463,17 +516,17 @@ function GalaxyBackground({ variant }) {
         </video>
       )}
 
-      {/* 2. Video Blue Tint Overlay */}
+      {/* Layer 2: Video Tint Overlay */}
       {bgMode === "full" && !reducedMotion && !videoFailed && (
         <div className="galaxy-video-tint" />
       )}
 
-      {/* 3. Canvas Star Field */}
+      {/* Layer 3: Canvas Star Field */}
       {bgMode !== "off" && (
         <canvas ref={canvasRef} className="galaxy-star-canvas" />
       )}
 
-      {/* 4. Nebula Blobs */}
+      {/* Layer 4: Nebula Blobs */}
       {bgMode !== "off" && (
         <>
           <div
@@ -491,12 +544,12 @@ function GalaxyBackground({ variant }) {
         </>
       )}
 
-      {/* 5. Grid, Vignette & Readability Layers */}
+      {/* Layer 5 & 6: Grid, Vignette & Readability Layers */}
       <div className="galaxy-grid" />
       <div className="galaxy-vignette" />
       <div className="galaxy-readability-overlay" />
 
-      {/* 6. Cursor Glow */}
+      {/* Layer 7: Cursor Glow */}
       {isDesktop && !reducedMotion && bgMode !== "off" && (
         <div
           className="galaxy-cursor-glow"

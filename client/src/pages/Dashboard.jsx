@@ -5,25 +5,25 @@ function Dashboard() {
   return (
     <section className="relative z-10 mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8 flex flex-col justify-center min-h-[calc(100vh-110px)]">
       {/* Hero Header Text */}
-      <div className="mx-auto max-w-5xl text-center mb-8 lg:mb-10">
-        <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-blue-400 backdrop-blur-md mb-4 animate-hero-fade-in">
-          <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-ping" />
+      <div className="mx-auto max-w-5xl text-center mb-8 lg:mb-10 rounded-3xl p-6 sm:p-8 galaxy-hero-surface">
+        <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/15 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-cyan-300 backdrop-blur-md mb-4 animate-hero-fade-in shadow-lg shadow-blue-500/10">
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-ping" />
           SMART EVENT DOCUMENT WORKSPACE
         </div>
 
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1] font-sans bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-400">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1] font-sans hero-title-shadow">
           {brandingData.appName}
         </h1>
 
-        <h2 className="mt-3 text-lg sm:text-2xl font-bold text-blue-400 max-w-4xl mx-auto leading-snug">
+        <h2 className="mt-3 text-lg sm:text-2xl font-bold text-[#74b3ff] max-w-4xl mx-auto leading-snug">
           {brandingData.subtitle}
         </h2>
 
-        <p className="mt-4 text-sm sm:text-lg font-medium text-slate-300 max-w-3xl mx-auto leading-relaxed">
+        <p className="mt-4 text-sm sm:text-lg font-medium text-[#dbeafe] max-w-3xl mx-auto leading-relaxed">
           Create certificates, posters, structured event reports, and multipage attendance sheets from one professional workspace.
         </p>
 
-        <p className="mt-2 text-xs sm:text-sm font-semibold text-slate-400 tracking-wide">
+        <p className="mt-2 text-xs sm:text-sm font-semibold text-[#aebed6] tracking-wide">
           Live previews, student master lists, auto-pagination, vector PDF/PNG exports, and complete record management.
         </p>
       </div>
@@ -31,18 +31,18 @@ function Dashboard() {
       {/* Four Main Module Cards */}
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4 max-w-7xl mx-auto w-full items-stretch">
         {/* Module Card 1: Event Certificate Generator */}
-        <div className="group relative overflow-hidden rounded-3xl border border-blue-500/20 bg-slate-900/60 p-6 sm:p-7 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:border-blue-400/50 hover:shadow-blue-500/10 flex flex-col justify-between">
+        <div className="group module-galaxy-card p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:border-blue-400/50 hover:shadow-blue-500/20 flex flex-col justify-between">
           <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-blue-500/15 blur-3xl group-hover:bg-blue-500/30 transition-all duration-500" />
           <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-indigo-500/15 blur-3xl group-hover:bg-indigo-500/30 transition-all duration-500" />
 
           <div className="relative z-10">
             {/* Visual CSS Illustration: Certificate Layered Card */}
-            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-blue-400/20 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950/40 p-4 shadow-inner">
+            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-blue-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-blue-950/60 p-4 shadow-inner">
               <div className="absolute top-2 left-2 h-7 w-7 border-t-2 border-l-2 border-amber-400/60 rounded-tl-lg" />
               <div className="absolute bottom-2 right-2 h-7 w-7 border-b-2 border-r-2 border-amber-400/60 rounded-br-lg" />
 
               <div className="absolute inset-x-6 top-3 h-full rounded-xl bg-blue-500/10 border border-blue-400/10 transform rotate-1 group-hover:rotate-2 transition-transform duration-300" />
-              <div className="relative h-full w-full rounded-xl border border-blue-400/30 bg-slate-900/90 p-3 flex flex-col justify-between shadow-lg">
+              <div className="relative h-full w-full rounded-xl border border-blue-400/30 bg-slate-950/90 p-3 flex flex-col justify-between shadow-lg">
                 <div className="flex items-center justify-between">
                   <div className="h-1.5 w-14 rounded-full bg-blue-400/50" />
                   <span className="text-[9px] font-black uppercase tracking-widest text-amber-300/80">CERTIFICATE</span>
@@ -65,7 +65,7 @@ function Dashboard() {
             <h2 className="text-xl font-black text-white tracking-tight font-sans">
               Event Certificate Generator
             </h2>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300 font-medium">
+            <p className="mt-2 text-xs leading-relaxed text-[#d1d9e8] font-medium">
               Design single or bulk event certificates using professional templates, live preview, PDF export, ZIP download, and certificate record management.
             </p>
 
@@ -73,7 +73,7 @@ function Dashboard() {
               {["Live Preview", "24+ Templates", "Bulk Generate", "PDF & ZIP"].map((pill) => (
                 <span
                   key={pill}
-                  className="rounded-lg border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-300"
+                  className="rounded-lg border border-blue-400/30 bg-blue-500/15 px-2 py-0.5 text-[11px] font-bold text-cyan-300"
                 >
                   {pill}
                 </span>
@@ -93,14 +93,14 @@ function Dashboard() {
         </div>
 
         {/* Module Card 2: Poster Generator */}
-        <div className="group relative overflow-hidden rounded-3xl border border-amber-500/20 bg-slate-900/60 p-6 sm:p-7 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:border-amber-400/50 hover:shadow-amber-500/10 flex flex-col justify-between">
+        <div className="group module-galaxy-card p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:border-amber-400/50 hover:shadow-amber-500/20 flex flex-col justify-between">
           <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-amber-500/15 blur-3xl group-hover:bg-amber-500/30 transition-all duration-500" />
           <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-orange-500/15 blur-3xl group-hover:bg-orange-500/30 transition-all duration-500" />
 
           <div className="relative z-10">
             {/* Visual CSS Illustration: Event Poster Frame */}
-            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-amber-400/20 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 p-4 shadow-inner">
-              <div className="relative h-full w-full rounded-xl border border-amber-400/30 bg-slate-900/90 p-3 flex flex-col justify-between shadow-lg">
+            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-amber-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-amber-950/60 p-4 shadow-inner">
+              <div className="relative h-full w-full rounded-xl border border-amber-400/30 bg-slate-950/90 p-3 flex flex-col justify-between shadow-lg">
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">EVENT POSTER</span>
                   <div className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
@@ -119,7 +119,7 @@ function Dashboard() {
             <h2 className="text-xl font-black text-white tracking-tight font-sans">
               Poster Generator
             </h2>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300 font-medium">
+            <p className="mt-2 text-xs leading-relaxed text-[#d1d9e8] font-medium">
               Create high-impact promotional event posters with live customizable themes, speaker details, and export as vector PDF or ultra-HD PNG.
             </p>
 
@@ -127,7 +127,7 @@ function Dashboard() {
               {["Custom Themes", "Speaker Cards", "PNG Export", "Vector PDF"].map((pill) => (
                 <span
                   key={pill}
-                  className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-300"
+                  className="rounded-lg border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-300"
                 >
                   {pill}
                 </span>
@@ -147,16 +147,16 @@ function Dashboard() {
         </div>
 
         {/* Module Card 3: Event Report Generator */}
-        <div className="group relative overflow-hidden rounded-3xl border border-purple-500/20 bg-slate-900/60 p-6 sm:p-7 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:border-purple-400/50 hover:shadow-purple-500/10 flex flex-col justify-between">
+        <div className="group module-galaxy-card p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:border-purple-400/50 hover:shadow-purple-500/20 flex flex-col justify-between">
           <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-purple-500/15 blur-3xl group-hover:bg-purple-500/30 transition-all duration-500" />
           <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-pink-500/15 blur-3xl group-hover:bg-pink-500/30 transition-all duration-500" />
 
           <div className="relative z-10">
             {/* Visual CSS Illustration: Event Report Stacked Pages */}
-            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-purple-400/20 bg-gradient-to-br from-slate-950 via-slate-900 to-purple-950/40 p-4 shadow-inner">
+            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-purple-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-purple-950/60 p-4 shadow-inner">
               <div className="absolute right-8 top-3 h-[90%] w-24 rounded-lg bg-purple-500/10 border border-purple-400/10 transform rotate-3 group-hover:rotate-6 transition-transform duration-300" />
               
-              <div className="relative h-full w-full rounded-xl border border-purple-400/30 bg-slate-900/90 p-3 flex justify-between gap-3 shadow-lg">
+              <div className="relative h-full w-full rounded-xl border border-purple-400/30 bg-slate-950/90 p-3 flex justify-between gap-3 shadow-lg">
                 <div className="flex-1 flex flex-col justify-between">
                   <div className="space-y-1">
                     <div className="h-1.5 w-16 rounded-full bg-purple-400/60" />
@@ -187,7 +187,7 @@ function Dashboard() {
             <h2 className="text-xl font-black text-white tracking-tight font-sans">
               Event Report Generator
             </h2>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300 font-medium">
+            <p className="mt-2 text-xs leading-relaxed text-[#d1d9e8] font-medium">
               Create structured event reports with event details, objectives, outcomes, photo gallery, signatures, and A4 PDF export.
             </p>
 
@@ -195,7 +195,7 @@ function Dashboard() {
               {["Academic Format", "Photo Upload", "Live Preview", "A4 PDF"].map((pill) => (
                 <span
                   key={pill}
-                  className="rounded-lg border border-purple-400/20 bg-purple-500/10 px-2 py-0.5 text-[11px] font-bold text-purple-300"
+                  className="rounded-lg border border-purple-400/30 bg-purple-500/15 px-2 py-0.5 text-[11px] font-bold text-purple-300"
                 >
                   {pill}
                 </span>
@@ -215,16 +215,16 @@ function Dashboard() {
         </div>
 
         {/* Module Card 4: Attendance Sheet Generator */}
-        <div className="group relative overflow-hidden rounded-3xl border border-teal-500/20 bg-slate-900/60 p-6 sm:p-7 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:border-teal-400/50 hover:shadow-teal-500/10 flex flex-col justify-between">
+        <div className="group module-galaxy-card p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:border-teal-400/50 hover:shadow-teal-500/20 flex flex-col justify-between">
           <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-teal-500/15 blur-3xl group-hover:bg-teal-500/30 transition-all duration-500" />
           <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-emerald-500/15 blur-3xl group-hover:bg-emerald-500/30 transition-all duration-500" />
 
           <div className="relative z-10">
             {/* Visual CSS Illustration: Multipage Attendance Sheet Table */}
-            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-teal-400/20 bg-gradient-to-br from-slate-950 via-slate-900 to-teal-950/40 p-4 shadow-inner">
+            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-teal-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-teal-950/60 p-4 shadow-inner">
               <div className="absolute inset-x-6 top-3 h-full rounded-xl bg-teal-500/10 border border-teal-400/10 transform rotate-1 group-hover:rotate-2 transition-transform duration-300" />
               
-              <div className="relative h-full w-full rounded-xl border border-teal-400/30 bg-slate-900/90 p-2.5 flex flex-col justify-between shadow-lg">
+              <div className="relative h-full w-full rounded-xl border border-teal-400/30 bg-slate-950/90 p-2.5 flex flex-col justify-between shadow-lg">
                 <div className="border-b border-slate-800 pb-1 flex items-center justify-between text-[8px] font-bold text-teal-300">
                   <span>PPSU / SE / ATTENDANCE</span>
                   <span>39 ROWS / PG</span>
@@ -257,7 +257,7 @@ function Dashboard() {
             <h2 className="text-xl font-black text-white tracking-tight font-sans">
               Attendance Sheet Generator
             </h2>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300 font-medium">
+            <p className="mt-2 text-xs leading-relaxed text-[#d1d9e8] font-medium">
               Manage class-wise student lists and generate structured multipage attendance sheets with blank signature columns.
             </p>
 
@@ -265,7 +265,7 @@ function Dashboard() {
               {["Student Master", "Class Filter", "Auto Pagination", "Blank Sign Column"].map((pill) => (
                 <span
                   key={pill}
-                  className="rounded-lg border border-teal-400/20 bg-teal-500/10 px-2 py-0.5 text-[11px] font-bold text-teal-300"
+                  className="rounded-lg border border-teal-400/30 bg-teal-500/15 px-2 py-0.5 text-[11px] font-bold text-teal-300"
                 >
                   {pill}
                 </span>
