@@ -1,4 +1,5 @@
 import { brandingData } from "../data/brandingData.js";
+import BackgroundSettingsToggle from "./ui/BackgroundSettingsToggle.jsx";
 
 function Navbar() {
   return (
@@ -12,11 +13,12 @@ function Navbar() {
             Certificate, Poster, Report & Attendance Tools
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-black text-emerald-400 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <BackgroundSettingsToggle />
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-black text-emerald-400 shadow-sm">
             Export Ready
           </span>
-          <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-black text-cyan-400 shadow-sm">
+          <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3.5 py-1.5 text-xs font-black text-cyan-400 shadow-sm">
             Document Workspace
           </span>
         </div>

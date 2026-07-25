@@ -1,10 +1,10 @@
 import { Outlet } from "react-router-dom";
 import { brandingData } from "../data/brandingData.js";
+import BackgroundSettingsToggle from "../components/ui/BackgroundSettingsToggle.jsx";
 
 function LandingLayout() {
   return (
     <div className="relative min-h-screen bg-transparent text-slate-100 flex flex-col justify-between overflow-x-hidden">
-
       {/* Landing Header */}
       <header className="relative z-20 w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -25,8 +25,10 @@ function LandingLayout() {
             </div>
           </div>
 
-          {/* Right Ownership & Status Badge */}
+          {/* Right Ownership, Motion Setting & Status Badge */}
           <div className="flex items-center gap-3">
+            <BackgroundSettingsToggle />
+
             <span className="hidden md:inline-flex items-center gap-2 text-xs font-semibold text-slate-400">
               <span>Developed by</span>
               <strong className="text-slate-200 font-bold">{brandingData.developerName}</strong>

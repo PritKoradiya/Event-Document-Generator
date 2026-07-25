@@ -5,8 +5,22 @@ import "./GalaxyBackground.css";
 
 function GalaxyBackground({ variant }) {
   const canvasRef = useRef(null);
+  const videoRef = useRef(null);
   const location = useLocation();
   const reducedMotion = useReducedMotion();
+
+  // Video State
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+
+  // Background Mode State ("full" | "reduced" | "off")
+  const [bgMode, setBgMode] = useState(() => {
+    try {
+      return localStorage.getItem("eventDocumentBackgroundMode") || "full";
+    } catch {
+      return "full";
+    }
+  });
 
   // Mouse position tracking for cursor glow & parallax
   const [cursorPos, setCursorPos] = useState({ x: -500, y: -500 });
@@ -17,6 +31,27 @@ function GalaxyBackground({ variant }) {
 
   const parallaxTargetRef = useRef({ x: 0, y: 0 });
   const parallaxCurrentRef = useRef({ x: 0, y: 0 });
+
+  // Listen for local background mode changes
+  useEffect(() => {
+    const handleBgModeChange = () => {
+      try {
+        const currentMode =
+          localStorage.getItem("eventDocumentBackgroundMode") || "full";
+        setBgMode(currentMode);
+      } catch {
+        setBgMode("full");
+      }
+    };
+
+    window.addEventListener("bgModeChange", handleBgModeChange);
+    window.addEventListener("storage", handleBgModeChange);
+
+    return () => {
+      window.removeEventListener("bgModeChange", handleBgModeChange);
+      window.removeEventListener("storage", handleBgModeChange);
+    };
+  }, []);
 
   // Infer variant from route if not explicitly passed
   const activeVariant = useMemo(() => {
@@ -54,7 +89,7 @@ function GalaxyBackground({ variant }) {
 
   // Pointer movement listener for desktop cursor glow & parallax
   useEffect(() => {
-    if (!isDesktop || reducedMotion) return;
+    if (!isDesktop || reducedMotion || bgMode === "off") return;
 
     const handlePointerMove = (e) => {
       if (e.pointerType === "touch") return;
@@ -78,10 +113,39 @@ function GalaxyBackground({ variant }) {
       window.removeEventListener("pointermove", handlePointerMove);
       document.body.removeEventListener("pointerleave", handlePointerLeave);
     };
-  }, [isDesktop, reducedMotion]);
+  }, [isDesktop, reducedMotion, bgMode]);
+
+  // Safely start video playback when mounted & ready
+  useEffect(() => {
+    if (bgMode !== "full" || reducedMotion || videoFailed) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = true;
+
+    const playVideo = async () => {
+      try {
+        await video.play();
+      } catch (err) {
+        setVideoFailed(true);
+      }
+    };
+
+    playVideo();
+  }, [videoReady, bgMode, reducedMotion, videoFailed]);
+
+  // Handle video error fallback logging in DEV mode
+  useEffect(() => {
+    if (import.meta.env.DEV && videoFailed) {
+      console.warn("Galaxy video unavailable. Canvas fallback is active.");
+    }
+  }, [videoFailed]);
 
   // Canvas Star Field Render Engine
   useEffect(() => {
+    if (bgMode === "off") return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -300,13 +364,31 @@ function GalaxyBackground({ variant }) {
       animFrameId = requestAnimationFrame(render);
     }
 
-    // Page Visibility API handler
+    // Page Visibility API handler for video & canvas
     const handleVisibilityChange = () => {
       isTabVisible = !document.hidden;
-      if (isTabVisible && !reducedMotion) {
-        animFrameId = requestAnimationFrame(render);
-      } else if (animFrameId) {
-        cancelAnimationFrame(animFrameId);
+      const video = videoRef.current;
+
+      if (isTabVisible) {
+        if (!reducedMotion) {
+          animFrameId = requestAnimationFrame(render);
+        }
+        if (
+          video &&
+          video.paused &&
+          bgMode === "full" &&
+          !reducedMotion &&
+          !videoFailed
+        ) {
+          video.play().catch(() => {});
+        }
+      } else {
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId);
+        }
+        if (video && !video.paused) {
+          video.pause();
+        }
       }
     };
 
@@ -331,7 +413,7 @@ function GalaxyBackground({ variant }) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("resize", handleResize);
     };
-  }, [activeVariant, reducedMotion]);
+  }, [activeVariant, reducedMotion, bgMode, videoFailed]);
 
   // Inline transform for parallax on nebula elements
   const nebulaStyleOne = {
@@ -352,20 +434,70 @@ function GalaxyBackground({ variant }) {
 
   return (
     <div
-      className={`galaxy-background galaxy-background--${activeVariant}`}
+      className={`galaxy-background galaxy-background--${activeVariant} galaxy-background--mode-${bgMode}`}
       aria-hidden="true"
     >
-      <canvas ref={canvasRef} className="galaxy-star-canvas" />
+      {/* 1. Video Layer (Optional / Full Mode) */}
+      {bgMode === "full" && !reducedMotion && !videoFailed && (
+        <video
+          ref={videoRef}
+          className={`galaxy-video-layer ${
+            videoReady && !videoFailed ? "is-ready" : ""
+          }`}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="/backgrounds/galaxy-poster.webp"
+          tabIndex={-1}
+          onCanPlay={() => setVideoReady(true)}
+          onLoadedData={() => setVideoReady(true)}
+          onError={() => {
+            setVideoReady(false);
+            setVideoFailed(true);
+          }}
+        >
+          <source src="/backgrounds/galaxy-loop.webm" type="video/webm" />
+          <source src="/backgrounds/galaxy-loop.mp4" type="video/mp4" />
+        </video>
+      )}
 
-      <div className="galaxy-nebula galaxy-nebula-one" style={nebulaStyleOne} />
-      <div className="galaxy-nebula galaxy-nebula-two" style={nebulaStyleTwo} />
-      <div className="galaxy-nebula galaxy-nebula-three" style={nebulaStyleThree} />
+      {/* 2. Video Blue Tint Overlay */}
+      {bgMode === "full" && !reducedMotion && !videoFailed && (
+        <div className="galaxy-video-tint" />
+      )}
 
+      {/* 3. Canvas Star Field */}
+      {bgMode !== "off" && (
+        <canvas ref={canvasRef} className="galaxy-star-canvas" />
+      )}
+
+      {/* 4. Nebula Blobs */}
+      {bgMode !== "off" && (
+        <>
+          <div
+            className="galaxy-nebula galaxy-nebula-one"
+            style={nebulaStyleOne}
+          />
+          <div
+            className="galaxy-nebula galaxy-nebula-two"
+            style={nebulaStyleTwo}
+          />
+          <div
+            className="galaxy-nebula galaxy-nebula-three"
+            style={nebulaStyleThree}
+          />
+        </>
+      )}
+
+      {/* 5. Grid, Vignette & Readability Layers */}
       <div className="galaxy-grid" />
       <div className="galaxy-vignette" />
       <div className="galaxy-readability-overlay" />
 
-      {isDesktop && !reducedMotion && (
+      {/* 6. Cursor Glow */}
+      {isDesktop && !reducedMotion && bgMode !== "off" && (
         <div
           className="galaxy-cursor-glow"
           style={{
