@@ -121,7 +121,7 @@ function AttendanceRecords() {
 
     const validation = validateAttendanceSheetLayout(targetSheet);
     if (!validation.valid) {
-      alert(`Cannot export PDF: ${validation.errors.join(", ")}`);
+      showNotice(`Cannot export PDF: ${validation.errors.join(", ")}`);
       return;
     }
 

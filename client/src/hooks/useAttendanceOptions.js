@@ -53,11 +53,13 @@ export function useAttendanceOptions() {
   };
 
   const getClassesForDepartment = useCallback(
-    (deptCode, includeInactive = false) => {
-      if (!deptCode || deptCode === "All") return classes;
+    (deptName, includeInactive = false) => {
+      if (!deptName || deptName === "All") return classes;
+      const target = (deptName || "").toString().replace(/^[-_\s]+/, "").trim().toUpperCase();
       return classes.filter((c) => {
-        const matchesDept = (c.departmentCode || "").toUpperCase() === deptCode.toUpperCase();
-        const matchesStatus = includeInactive ? true : (c.status || "Active") === "Active";
+        const cDept = (c.departmentName || c.departmentCode || c.department || "").toString().replace(/^[-_\s]+/, "").trim().toUpperCase();
+        const matchesDept = cDept === target;
+        const matchesStatus = includeInactive ? true : (c.isActive ?? ((c.status || "Active") === "Active"));
         return matchesDept && matchesStatus;
       });
     },
@@ -114,9 +116,11 @@ export function useAttendanceOptions() {
     refreshOptions: fetchOptions,
     getClassesForDepartment,
     createDepartment,
+    addDepartment: createDepartment,
     updateDepartment,
     deleteDepartment,
     createClass,
+    addClass: createClass,
     updateClass,
     deleteClass
   };

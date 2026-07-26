@@ -50,7 +50,7 @@ const saveLocalStudents = (students) => {
 export const getStudents = async (params = {}) => {
   try {
     const query = new URLSearchParams(params).toString();
-    const response = await fetch(`${API_BASE_URL}/attendance/students${query ? `?${query}` : ""}`);
+    const response = await fetch(`${API_BASE_URL}/attendance-students${query ? `?${query}` : ""}`);
     if (response.ok) {
       const data = await response.json();
       return data;
@@ -61,14 +61,14 @@ export const getStudents = async (params = {}) => {
 
   let list = getLocalStudents();
   if (params.department && params.department !== "All") {
-    list = list.filter((s) => s.department.toLowerCase() === params.department.toLowerCase());
+    list = list.filter((s) => (s.department || "").toLowerCase() === params.department.toLowerCase());
   }
   if (params.className && params.className !== "All") {
-    list = list.filter((s) => s.className.toLowerCase() === params.className.toLowerCase());
+    list = list.filter((s) => (s.className || "").toLowerCase() === params.className.toLowerCase());
   }
   if (params.search) {
     const q = params.search.toLowerCase();
-    list = list.filter((s) => s.enrollmentNo.toLowerCase().includes(q) || s.studentName.toLowerCase().includes(q));
+    list = list.filter((s) => (s.enrollmentNo || "").toLowerCase().includes(q) || (s.studentName || "").toLowerCase().includes(q));
   }
 
   return { success: true, data: list, total: list.length };
@@ -76,15 +76,21 @@ export const getStudents = async (params = {}) => {
 
 export const createStudent = async (studentData) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/attendance/students`, {
+    const response = await fetch(`${API_BASE_URL}/attendance-students`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(studentData)
     });
     if (response.ok) {
       return await response.json();
+    } else {
+      const err = await response.json();
+      throw new Error(err.message || "Failed to create student.");
     }
   } catch (e) {
+    if (e.message && (e.message.includes("already exists") || e.message.includes("required"))) {
+      throw e;
+    }
     // Fallback
   }
 
@@ -111,7 +117,7 @@ export const createStudent = async (studentData) => {
 
 export const bulkCreateStudents = async ({ department, className, students }) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/attendance/students/bulk`, {
+    const response = await fetch(`${API_BASE_URL}/attendance-students/bulk`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ department, className, students })
@@ -261,7 +267,7 @@ export const importStudentCsv = async (formData) => {
 
 export const updateStudent = async (id, studentData) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/attendance/students/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/attendance-students/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(studentData)
@@ -274,7 +280,7 @@ export const updateStudent = async (id, studentData) => {
   }
 
   const list = getLocalStudents();
-  const index = list.findIndex((s) => s.id === id);
+  const index = list.findIndex((s) => s.id === id || s._id === id);
   if (index === -1) {
     throw new Error("Student record not found.");
   }
@@ -292,7 +298,7 @@ export const updateStudent = async (id, studentData) => {
 
 export const deleteStudent = async (id) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/attendance/students/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/attendance-students/${id}`, {
       method: "DELETE"
     });
     if (response.ok) {
@@ -302,7 +308,7 @@ export const deleteStudent = async (id) => {
     // Fallback
   }
 
-  const list = getLocalStudents().filter((s) => s.id !== id);
+  const list = getLocalStudents().filter((s) => s.id !== id && s._id !== id);
   saveLocalStudents(list);
   return { success: true, message: "Student deleted successfully." };
 };
@@ -324,7 +330,7 @@ export const bulkDeleteStudents = async (studentIds = []) => {
   const idSet = new Set(studentIds);
   const currentList = getLocalStudents();
   const initialCount = currentList.length;
-  const remaining = currentList.filter((s) => !idSet.has(s.id));
+  const remaining = currentList.filter((s) => !idSet.has(s.id) && !idSet.has(s._id));
   const deletedCount = initialCount - remaining.length;
 
   saveLocalStudents(remaining);
@@ -348,10 +354,10 @@ export const getStudentFilterSummary = async ({ department, className } = {}) =>
 
   let list = getLocalStudents();
   if (department && department !== "All") {
-    list = list.filter((s) => s.department.toLowerCase() === department.toLowerCase());
+    list = list.filter((s) => (s.department || "").toLowerCase() === department.toLowerCase());
   }
   if (className && className !== "All") {
-    list = list.filter((s) => s.className.toLowerCase() === className.toLowerCase());
+    list = list.filter((s) => (s.className || "").toLowerCase() === className.toLowerCase());
   }
 
   return {
@@ -380,7 +386,7 @@ export const deleteStudentsByClass = async ({ department, className, confirmatio
   const currentList = getLocalStudents();
   const initialCount = currentList.length;
   const remaining = currentList.filter(
-    (s) => !(s.department.toLowerCase() === department.toLowerCase() && s.className.toLowerCase() === className.toLowerCase())
+    (s) => !((s.department || "").toLowerCase() === department.toLowerCase() && (s.className || "").toLowerCase() === className.toLowerCase())
   );
   const deletedCount = initialCount - remaining.length;
 

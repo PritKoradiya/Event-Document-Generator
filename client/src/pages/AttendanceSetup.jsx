@@ -3,6 +3,7 @@ import ModuleHeader from "../components/ui/ModuleHeader.jsx";
 import { useAttendanceOptions } from "../hooks/useAttendanceOptions.js";
 import AddDepartmentModal from "../components/attendance/AddDepartmentModal.jsx";
 import AddClassModal from "../components/attendance/AddClassModal.jsx";
+import { getCleanDepartmentLabel, getReadableAttendanceError } from "../utils/attendanceErrorUtils.js";
 
 function AttendanceSetup() {
   const {
@@ -10,7 +11,6 @@ function AttendanceSetup() {
     classes,
     loading,
     error: hookError,
-    refreshOptions,
     updateDepartment,
     deleteDepartment,
     updateClass,
@@ -53,17 +53,17 @@ function AttendanceSetup() {
   const handleToggleDeptStatus = async (dept) => {
     const newStatus = dept.status === "Inactive" ? "Active" : "Inactive";
     try {
-      await updateDepartment(dept.id, { status: newStatus });
-      showNotice(`Department '${dept.code}' status changed to ${newStatus}.`);
+      await updateDepartment(dept.id || dept._id, { status: newStatus, isActive: newStatus === "Active" });
+      showNotice(`Department '${dept.code || dept.name}' status changed to ${newStatus}.`);
     } catch (err) {
-      showNotice(err.message || "Failed to update department status.");
+      showNotice(getReadableAttendanceError(err));
     }
   };
 
   const handleEditDeptClick = (dept) => {
     setEditingDept(dept);
-    setDeptFormCode(dept.code);
-    setDeptFormName(dept.name || dept.code);
+    setDeptFormCode(dept.code || dept.name);
+    setDeptFormName(dept.displayName || dept.name || dept.code);
     setDeptFormDesc(dept.description || "");
     setModalError("");
   };
@@ -75,26 +75,27 @@ function AttendanceSetup() {
       return;
     }
     try {
-      await updateDepartment(editingDept.id, {
+      await updateDepartment(editingDept.id || editingDept._id, {
         code: deptFormCode.trim().toUpperCase(),
-        name: deptFormName.trim(),
+        name: deptFormCode.trim().toUpperCase(),
+        displayName: deptFormName.trim(),
         description: deptFormDesc.trim()
       });
       setEditingDept(null);
       showNotice("Department updated successfully.");
     } catch (err) {
-      setModalError(err.message || "Failed to update department.");
+      setModalError(getReadableAttendanceError(err));
     }
   };
 
   const handleDeleteDeptConfirm = async () => {
     if (!deletingDept) return;
     try {
-      await deleteDepartment(deletingDept.id);
-      showNotice(`Department '${deletingDept.code}' deleted successfully.`);
+      await deleteDepartment(deletingDept.id || deletingDept._id);
+      showNotice(`Department '${deletingDept.code || deletingDept.name}' deleted successfully.`);
       setDeletingDept(null);
     } catch (err) {
-      setModalError(err.message || "Cannot delete department.");
+      setModalError(getReadableAttendanceError(err));
     }
   };
 
@@ -102,18 +103,18 @@ function AttendanceSetup() {
   const handleToggleClassStatus = async (cls) => {
     const newStatus = cls.status === "Inactive" ? "Active" : "Inactive";
     try {
-      await updateClass(cls.id, { status: newStatus });
-      showNotice(`Class '${cls.code}' status changed to ${newStatus}.`);
+      await updateClass(cls.id || cls._id, { status: newStatus, isActive: newStatus === "Active" });
+      showNotice(`Class '${cls.className || cls.code}' status changed to ${newStatus}.`);
     } catch (err) {
-      showNotice(err.message || "Failed to update class status.");
+      showNotice(getReadableAttendanceError(err));
     }
   };
 
   const handleEditClassClick = (cls) => {
     setEditingClass(cls);
-    setClassFormDept(cls.departmentCode);
-    setClassFormCode(cls.code);
-    setClassFormName(cls.name || cls.code);
+    setClassFormDept(cls.departmentCode || cls.departmentName || cls.department);
+    setClassFormCode(cls.className || cls.code);
+    setClassFormName(cls.displayName || cls.name || cls.className);
     setClassFormDesc(cls.description || "");
     setModalError("");
   };
@@ -125,33 +126,37 @@ function AttendanceSetup() {
       return;
     }
     try {
-      await updateClass(editingClass.id, {
+      await updateClass(editingClass.id || editingClass._id, {
         departmentCode: classFormDept,
+        departmentName: classFormDept,
+        department: classFormDept,
         code: classFormCode.trim().toUpperCase(),
-        name: classFormName.trim(),
+        className: classFormCode.trim().toUpperCase(),
+        displayName: classFormName.trim(),
         description: classFormDesc.trim()
       });
       setEditingClass(null);
       showNotice("Class updated successfully.");
     } catch (err) {
-      setModalError(err.message || "Failed to update class.");
+      setModalError(getReadableAttendanceError(err));
     }
   };
 
   const handleDeleteClassConfirm = async () => {
     if (!deletingClass) return;
     try {
-      await deleteClass(deletingClass.id);
-      showNotice(`Class '${deletingClass.code}' deleted successfully.`);
+      await deleteClass(deletingClass.id || deletingClass._id);
+      showNotice(`Class '${deletingClass.className || deletingClass.code}' deleted successfully.`);
       setDeletingClass(null);
     } catch (err) {
-      setModalError(err.message || "Cannot delete class.");
+      setModalError(getReadableAttendanceError(err));
     }
   };
 
   const filteredClasses = classes.filter((c) => {
     if (selectedDeptFilter === "All") return true;
-    return (c.departmentCode || "").toUpperCase() === selectedDeptFilter.toUpperCase();
+    const cDept = (c.departmentCode || c.departmentName || c.department || "").toString().toUpperCase();
+    return cDept === selectedDeptFilter.toUpperCase();
   });
 
   return (
@@ -176,7 +181,7 @@ function AttendanceSetup() {
 
       {hookError && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 shadow-md animate-hero-fade-in">
-          ⚠️ {hookError}
+          ⚠️ {getReadableAttendanceError(hookError)}
         </div>
       )}
 
@@ -220,20 +225,24 @@ function AttendanceSetup() {
           ) : (
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
               {departments.map((dept) => {
-                const classCount = classes.filter(
-                  (c) => (c.departmentCode || "").toUpperCase() === dept.code.toUpperCase()
-                ).length;
-                const isActive = (dept.status || "Active") === "Active";
+                const deptCode = (dept.code || dept.name || "").toUpperCase();
+                const classCount = classes.filter((c) => {
+                  const cDept = (c.departmentCode || c.departmentName || c.department || "").toUpperCase();
+                  return cDept === deptCode;
+                }).length;
+
+                const isActive = (dept.status || "Active") === "Active" && dept.isActive !== false;
+                const deptLabel = getCleanDepartmentLabel(dept);
 
                 return (
                   <div
-                    key={dept.id || dept.code}
+                    key={dept.id || dept._id || deptCode}
                     className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 space-y-2 hover:shadow-sm transition"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-black text-sm text-slate-950 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
-                          {dept.code}
+                          {deptCode}
                         </span>
                         <span
                           className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
@@ -279,7 +288,7 @@ function AttendanceSetup() {
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">{dept.name || dept.code}</h4>
+                      <h4 className="text-sm font-bold text-slate-900">{deptLabel}</h4>
                       {dept.description && (
                         <p className="text-xs text-slate-500 font-medium">{dept.description}</p>
                       )}
@@ -326,8 +335,8 @@ function AttendanceSetup() {
             >
               <option value="All">All Departments</option>
               {departments.map((d) => (
-                <option key={d.id || d.code} value={d.code}>
-                  {d.code} - {d.name}
+                <option key={d.id || d._id || d.code} value={d.code || d.name}>
+                  {getCleanDepartmentLabel(d)}
                 </option>
               ))}
             </select>
@@ -349,25 +358,29 @@ function AttendanceSetup() {
                 onClick={() => setIsAddClassOpen(true)}
                 className="text-xs font-bold text-teal-700 underline"
               >
-                + Add Class
+                + Add First Class
               </button>
             </div>
           ) : (
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
               {filteredClasses.map((cls) => {
-                const isActive = (cls.status || "Active") === "Active";
+                const isActive = (cls.status || "Active") === "Active" && cls.isActive !== false;
+                const cDept = cls.departmentCode || cls.departmentName || cls.department || "";
+                const cCode = cls.className || cls.code || cls.name || "";
+                const cDisplayName = cls.displayName || cls.name || cCode;
+
                 return (
                   <div
-                    key={cls.id || cls.code}
+                    key={cls.id || cls._id || `${cDept}_${cCode}`}
                     className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 space-y-2 hover:shadow-sm transition"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-sm text-slate-950 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
-                          {cls.code}
+                        <span className="font-mono font-black text-xs text-teal-900 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                          {cDept}
                         </span>
-                        <span className="text-[11px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
-                          Dept: {cls.departmentCode}
+                        <span className="font-mono font-black text-sm text-slate-950">
+                          {cCode}
                         </span>
                         <span
                           className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
@@ -413,7 +426,7 @@ function AttendanceSetup() {
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">{cls.name || cls.code}</h4>
+                      <h4 className="text-sm font-bold text-slate-900">{cDisplayName}</h4>
                       {cls.description && (
                         <p className="text-xs text-slate-500 font-medium">{cls.description}</p>
                       )}
@@ -426,88 +439,47 @@ function AttendanceSetup() {
         </div>
       </div>
 
-      {/* ADD DEPARTMENT MODAL */}
-      <AddDepartmentModal
-        isOpen={isAddDeptOpen}
-        onClose={() => setIsAddDeptOpen(false)}
-        onSuccess={() => {
-          refreshOptions();
-          showNotice("Department added successfully.");
-        }}
-      />
-
-      {/* ADD CLASS MODAL */}
-      <AddClassModal
-        isOpen={isAddClassOpen}
-        initialDepartmentCode={selectedDeptFilter !== "All" ? selectedDeptFilter : ""}
-        onClose={() => setIsAddClassOpen(false)}
-        onSuccess={() => {
-          refreshOptions();
-          showNotice("Class added successfully.");
-        }}
-      />
-
-      {/* EDIT DEPARTMENT MODAL */}
+      {/* Edit Department Modal */}
       {editingDept && (
-        <div className="app-glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-hero-fade-in">
+        <div className="app-glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="app-glass-modal w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-black text-slate-950 font-sans">
-                Edit Department ({editingDept.code})
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingDept(null)}
-                className="rounded-xl p-1 text-slate-400 hover:bg-slate-100"
-              >
-                ✕
-              </button>
-            </div>
-
+            <h3 className="text-lg font-black text-slate-950 font-sans">Edit Department</h3>
             {modalError && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">
                 {modalError}
               </div>
             )}
-
-            <form onSubmit={handleSaveEditDept} className="space-y-3">
+            <form onSubmit={handleSaveEditDept} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Department Code *
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Department Code *</label>
                 <input
                   type="text"
                   value={deptFormCode}
                   onChange={(e) => setDeptFormCode(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900 focus:border-teal-500 uppercase font-mono"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900 uppercase font-mono"
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Display Name *
-                </label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Display Name *</label>
                 <input
                   type="text"
                   value={deptFormName}
                   onChange={(e) => setDeptFormName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900 focus:border-teal-500"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900"
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
                 <input
                   type="text"
                   value={deptFormDesc}
                   onChange={(e) => setDeptFormDesc(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-800 focus:border-teal-500"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-800"
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditingDept(null)}
@@ -517,7 +489,7 @@ function AttendanceSetup() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-teal-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-teal-700"
+                  className="rounded-xl bg-teal-600 px-5 py-2 text-xs font-bold text-white hover:bg-teal-700 shadow-md"
                 >
                   Save Changes
                 </button>
@@ -527,132 +499,20 @@ function AttendanceSetup() {
         </div>
       )}
 
-      {/* EDIT CLASS MODAL */}
-      {editingClass && (
-        <div className="app-glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-hero-fade-in">
-          <div className="app-glass-modal w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-black text-slate-950 font-sans">
-                Edit Class ({editingClass.code})
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingClass(null)}
-                className="rounded-xl p-1 text-slate-400 hover:bg-slate-100"
-              >
-                ✕
-              </button>
-            </div>
-
-            {modalError && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">
-                {modalError}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveEditClass} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Department *
-                </label>
-                <select
-                  value={classFormDept}
-                  onChange={(e) => setClassFormDept(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900 focus:border-teal-500"
-                  required
-                >
-                  {departments.map((d) => (
-                    <option key={d.id || d.code} value={d.code}>
-                      {d.code} - {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Class Code *</label>
-                <input
-                  type="text"
-                  value={classFormCode}
-                  onChange={(e) => setClassFormCode(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900 focus:border-teal-500 uppercase font-mono"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Display Name *
-                </label>
-                <input
-                  type="text"
-                  value={classFormName}
-                  onChange={(e) => setClassFormName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900 focus:border-teal-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
-                <input
-                  type="text"
-                  value={classFormDesc}
-                  onChange={(e) => setClassFormDesc(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-800 focus:border-teal-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingClass(null)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-teal-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-teal-700"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* PART 12: DELETE DEPARTMENT CONFIRMATION MODAL */}
+      {/* Delete Department Confirmation */}
       {deletingDept && (
-        <div className="app-glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-hero-fade-in">
+        <div className="app-glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="app-glass-modal w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-black text-rose-700 font-sans flex items-center gap-2">
-                <span>⚠️</span> Delete Department '{deletingDept.code}'?
-              </h3>
-              <button
-                type="button"
-                onClick={() => setDeletingDept(null)}
-                className="rounded-xl p-1 text-slate-400 hover:bg-slate-100"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 space-y-2">
-              <p className="text-xs text-amber-950 font-bold leading-relaxed">
-                Departments being used by students, classes, or attendance sheets cannot be deleted. They can be deactivated instead.
-              </p>
-            </div>
-
+            <h3 className="text-lg font-black text-rose-950 font-sans">Delete Department?</h3>
+            <p className="text-xs text-slate-600 font-medium">
+              Are you sure you want to delete department <strong className="text-slate-900">{deletingDept.code || deletingDept.name}</strong>?
+            </p>
             {modalError && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">
                 {modalError}
               </div>
             )}
-
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setDeletingDept(null)}
@@ -663,45 +523,104 @@ function AttendanceSetup() {
               <button
                 type="button"
                 onClick={handleDeleteDeptConfirm}
-                className="rounded-xl bg-gradient-to-r from-rose-600 to-red-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:from-rose-700 hover:to-red-700"
+                className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-md"
               >
-                Delete Department
+                Confirm Delete
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* PART 12: DELETE CLASS CONFIRMATION MODAL */}
-      {deletingClass && (
-        <div className="app-glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-hero-fade-in">
+      {/* Edit Class Modal */}
+      {editingClass && (
+        <div className="app-glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="app-glass-modal w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-black text-rose-700 font-sans flex items-center gap-2">
-                <span>⚠️</span> Delete Class '{deletingClass.code}'?
-              </h3>
-              <button
-                type="button"
-                onClick={() => setDeletingClass(null)}
-                className="rounded-xl p-1 text-slate-400 hover:bg-slate-100"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 space-y-2">
-              <p className="text-xs text-amber-950 font-bold leading-relaxed">
-                Classes being used by student rosters or attendance sheets cannot be deleted. Deactivating is recommended if records depend on this class.
-              </p>
-            </div>
-
+            <h3 className="text-lg font-black text-slate-950 font-sans">Edit Class</h3>
             {modalError && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">
                 {modalError}
               </div>
             )}
+            <form onSubmit={handleSaveEditClass} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Department *</label>
+                <select
+                  value={classFormDept}
+                  onChange={(e) => setClassFormDept(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900"
+                  required
+                >
+                  {departments.map((d) => (
+                    <option key={d.id || d._id || d.code} value={d.code || d.name}>
+                      {getCleanDepartmentLabel(d)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Class Code *</label>
+                <input
+                  type="text"
+                  value={classFormCode}
+                  onChange={(e) => setClassFormCode(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900 uppercase font-mono"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Display Name *</label>
+                <input
+                  type="text"
+                  value={classFormName}
+                  onChange={(e) => setClassFormName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-900"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={classFormDesc}
+                  onChange={(e) => setClassFormDesc(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-800"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingClass(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-teal-600 px-5 py-2 text-xs font-bold text-white hover:bg-teal-700 shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+      {/* Delete Class Confirmation */}
+      {deletingClass && (
+        <div className="app-glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="app-glass-modal w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-black text-rose-950 font-sans">Delete Class?</h3>
+            <p className="text-xs text-slate-600 font-medium">
+              Are you sure you want to delete class <strong className="text-slate-900">{deletingClass.className || deletingClass.code}</strong>?
+            </p>
+            {modalError && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">
+                {modalError}
+              </div>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setDeletingClass(null)}
@@ -712,14 +631,32 @@ function AttendanceSetup() {
               <button
                 type="button"
                 onClick={handleDeleteClassConfirm}
-                className="rounded-xl bg-gradient-to-r from-rose-600 to-red-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:from-rose-700 hover:to-red-700"
+                className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-md"
               >
-                Delete Class
+                Confirm Delete
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Creation Modals */}
+      <AddDepartmentModal
+        isOpen={isAddDeptOpen}
+        onClose={() => setIsAddDeptOpen(false)}
+        onSuccess={() => {
+          showNotice("Department added successfully.");
+        }}
+      />
+
+      <AddClassModal
+        isOpen={isAddClassOpen}
+        initialDepartmentCode={selectedDeptFilter !== "All" ? selectedDeptFilter : ""}
+        onClose={() => setIsAddClassOpen(false)}
+        onSuccess={() => {
+          showNotice("Class added successfully.");
+        }}
+      />
     </section>
   );
 }

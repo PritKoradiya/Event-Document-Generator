@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAttendanceOptions } from "../../hooks/useAttendanceOptions.js";
+import { getReadableAttendanceError } from "../../utils/attendanceErrorUtils.js";
 
 function AddDepartmentModal({ isOpen, onClose, onSuccess }) {
   const { createDepartment } = useAttendanceOptions();
@@ -9,14 +10,33 @@ function AddDepartmentModal({ isOpen, onClose, onSuccess }) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Close on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && isOpen && !isSubmitting) {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isSubmitting]);
+
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    setCode("");
+    setName("");
+    setDescription("");
+    setError("");
+    onClose();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    const trimmedCode = code.trim().toUpperCase();
-    const trimmedName = name.trim();
+    const trimmedCode = code.replace(/^[-_\s]+/, "").trim().toUpperCase();
+    const trimmedName = name.replace(/^[-_\s]+/, "").trim();
 
     if (!trimmedCode) {
       setError("Department Code / Name is required.");
@@ -38,21 +58,29 @@ function AddDepartmentModal({ isOpen, onClose, onSuccess }) {
         setCode("");
         setName("");
         setDescription("");
+        setError("");
         onClose();
         if (onSuccess) {
           onSuccess(res.data || { code: trimmedCode, name: trimmedName });
         }
       }
     } catch (err) {
-      setError(err.message || "Failed to create department.");
+      setError(getReadableAttendanceError(err));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="app-glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4 animate-hero-fade-in">
-      <div className="app-glass-modal w-full max-w-md p-6 space-y-5">
+    <div
+      className="app-glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4 animate-hero-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) {
+          handleClose();
+        }
+      }}
+    >
+      <div className="app-glass-modal w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
             <h3 className="text-lg font-black text-slate-950 font-sans">
@@ -64,7 +92,7 @@ function AddDepartmentModal({ isOpen, onClose, onSuccess }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSubmitting}
             className="rounded-xl p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
           >
@@ -123,7 +151,7 @@ function AddDepartmentModal({ isOpen, onClose, onSuccess }) {
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
             >

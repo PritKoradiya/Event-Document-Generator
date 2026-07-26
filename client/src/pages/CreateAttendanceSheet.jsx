@@ -1,9 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import ModuleHeader from "../components/ui/ModuleHeader.jsx";
 import AttendanceSheetSvgPreview from "../components/attendance/AttendanceSheetSvgPreview.jsx";
 import AttendanceTypographyTestPanel from "../components/attendance/AttendanceTypographyTestPanel.jsx";
 import DepartmentClassSelector from "../components/attendance/DepartmentClassSelector.jsx";
 import { getStudents } from "../services/attendanceStudentApi.js";
+import { createAttendanceSheet, saveAttendanceDraft } from "../services/attendanceSheetApi.js";
+import { getReadableAttendanceError, toInputDate, toDisplayDate, toApiDate } from "../utils/attendanceErrorUtils.js";
+import { downloadAttendanceSheetPdf } from "../utils/downloadAttendanceSheetPdf.js";
+import { validateAttendanceSheetLayout } from "../utils/validateAttendanceSheetLayout.js";
 
 // Helper to format safe filename
 const formatPdfFileName = (heading, className, date, sheetId) => {
@@ -13,69 +17,108 @@ const formatPdfFileName = (heading, className, date, sheetId) => {
   const cleanDate = sanitize(date) || "Date";
   const cleanId = sanitize(sheetId) || "Sheet";
 
-  return `Attendance_Sheet_${cleanHeading}_${cleanClass}_${cleanDate}_${cleanId}.pdf`;
+  return `Attendance_Sheet_${cleanHeading}__${cleanClass}__${cleanDate}_${cleanId}.pdf`;
 };
 
 function CreateAttendanceSheet() {
   const previewRef = useRef(null);
 
+  // Form State (PART 3)
   const [department, setDepartment] = useState("CE/IT");
-  const [heading, setHeading] = useState("Expert Talk - Prompt Engineering");
   const [className, setClassName] = useState("CE4");
-  const [date, setDate] = useState(() => {
-    const today = new Date();
-    const dd = String(today.getDate()).padStart(2, "0");
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const yyyy = today.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  });
-  const [eventCoordinatorName, setEventCoordinatorName] = useState("Dr. Jayshri Patil");
+  const [eventHeading, setEventHeading] = useState("Expert Talk - Prompt Engineering");
+  const [eventDate, setEventDate] = useState(() => toInputDate(new Date()));
+  const [coordinatorName, setCoordinatorName] = useState("Dr. Jayshri Patil");
 
-  // Dynamic matching students
+  // Roster State
   const [matchingStudents, setMatchingStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
 
-  // Form errors & status notifications
+  // Status notifications & loaders
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // Stored / Generated Attendance Sheet State for live preview
   const [generatedSheet, setGeneratedSheet] = useState(null);
 
-  // Fetch matching students whenever department or className changes
-  useEffect(() => {
-    const fetchMatching = async () => {
-      if (!department || !className) {
-        setMatchingStudents([]);
-        return;
-      }
-      setLoadingStudents(true);
-      try {
-        const res = await getStudents({ department, className });
-        if (res && res.data) {
+  // Request counter for cancelling/ignoring stale async responses
+  const activeRequestIdRef = useRef(0);
+
+  // PART 12: Load Roster function with stale-response protection
+  const loadRoster = useCallback(async (dept, cls) => {
+    // If department or className empty or sentinel, clear roster
+    if (!dept || !cls || dept === "All" || cls === "All" || dept.startsWith("__") || cls.startsWith("__")) {
+      setMatchingStudents([]);
+      setLoadingStudents(false);
+      return;
+    }
+
+    const currentRequestId = ++activeRequestIdRef.current;
+    setLoadingStudents(true);
+    setMatchingStudents([]); // Immediately clear previous roster
+
+    try {
+      const res = await getStudents({ department: dept, className: cls });
+
+      // Only apply if this request is still the latest one
+      if (currentRequestId === activeRequestIdRef.current) {
+        if (res && Array.isArray(res.data)) {
           setMatchingStudents(res.data);
+          if (res.data.length === 0) {
+            setErrorMessage("No students were found for the selected department and class.");
+          } else {
+            setErrorMessage("");
+          }
         } else {
           setMatchingStudents([]);
+          setErrorMessage("No students were found for the selected department and class.");
         }
-      } catch (e) {
+      }
+    } catch (e) {
+      if (currentRequestId === activeRequestIdRef.current) {
         console.error("Failed to fetch matching students", e);
         setMatchingStudents([]);
-      } finally {
+        setErrorMessage(getReadableAttendanceError(e));
+      }
+    } finally {
+      if (currentRequestId === activeRequestIdRef.current) {
         setLoadingStudents(false);
       }
-    };
+    }
+  }, []);
 
-    fetchMatching();
-  }, [department, className]);
+  // PART 13 & PART 14: Department & Class Change triggers
+  const handleDepartmentChange = (newDept) => {
+    setDepartment(newDept);
+    setClassName(""); // PART 13: Clear class on department change
+    setMatchingStudents([]); // Clear roster immediately
+    setErrorMessage("");
+    setSuccessMessage("");
+    setGeneratedSheet(null);
+  };
+
+  const handleClassChange = (newClass) => {
+    setClassName(newClass);
+    setErrorMessage("");
+    setSuccessMessage("");
+    setGeneratedSheet(null);
+  };
+
+  useEffect(() => {
+    loadRoster(department, className);
+  }, [department, className, loadRoster]);
 
   // Reset form
   const handleReset = () => {
-    setDepartment("CE/IT");
-    setHeading("");
-    setClassName("CE4");
-    setDate("");
-    setEventCoordinatorName("");
+    setDepartment("");
+    setClassName("");
+    setEventHeading("");
+    setEventDate(toInputDate(new Date()));
+    setCoordinatorName("");
+    setMatchingStudents([]);
     setErrorMessage("");
     setSuccessMessage("");
     setGeneratedSheet(null);
@@ -86,79 +129,102 @@ function CreateAttendanceSheet() {
     setErrorMessage("");
     setSuccessMessage("");
 
-    if (!department.trim()) {
-      setErrorMessage("Department is required.");
+    if (!department || department.startsWith("__")) {
+      setErrorMessage("Please select a valid Department.");
       return false;
     }
-    if (!heading.trim()) {
+    if (!className || className.startsWith("__")) {
+      setErrorMessage("Please select a valid Class.");
+      return false;
+    }
+    if (!eventHeading.trim()) {
       setErrorMessage("Event Heading is required.");
       return false;
     }
-    if (!className.trim()) {
-      setErrorMessage("Class is required.");
-      return false;
-    }
-    if (!date.trim()) {
+    if (!eventDate) {
       setErrorMessage("Date is required.");
       return false;
     }
-    if (!eventCoordinatorName.trim()) {
+    if (!coordinatorName.trim()) {
       setErrorMessage("Event Coordinator Name is required.");
       return false;
     }
     if (matchingStudents.length === 0) {
-      setErrorMessage("No students found for the selected department and class.");
+      setErrorMessage("No students were found for the selected department and class.");
       return false;
     }
     return true;
   };
 
-  // Save Draft
+  // PART 16: Save Draft Handler
   const handleSaveDraft = async () => {
-    if (!department || !className) {
-      setErrorMessage("Please select Department and Class before saving draft.");
+    if (!department || !className || department.startsWith("__") || className.startsWith("__")) {
+      setErrorMessage("Please select a valid Department and Class before saving draft.");
       return;
     }
 
+    setIsSavingDraft(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
     try {
-      const res = await saveDraftAttendanceSheet({
+      const payload = {
         department,
-        heading,
         className,
-        date,
-        eventCoordinatorName,
-        students: matchingStudents
-      });
+        eventHeading: eventHeading.trim(),
+        heading: eventHeading.trim(),
+        eventDate: toApiDate(eventDate),
+        date: toDisplayDate(eventDate),
+        coordinatorName: coordinatorName.trim(),
+        eventCoordinatorName: coordinatorName.trim(),
+        students: matchingStudents,
+        studentsSnapshot: matchingStudents
+      };
+
+      const res = await saveAttendanceDraft(payload);
 
       if (res && res.success) {
         setSuccessMessage("Draft attendance sheet saved successfully!");
         setGeneratedSheet(res.data);
       }
     } catch (err) {
-      setErrorMessage(err.message || "Failed to save draft.");
+      setErrorMessage(getReadableAttendanceError(err));
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
-  // Generate Attendance Sheet
+  // PART 15: Generate Attendance Sheet Handler
   const handleGenerate = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+    if (e) e.preventDefault();
+    if (!validateForm() || isGenerating) return;
+
+    setIsGenerating(true);
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
-      const res = await createAttendanceSheet({
+      const payload = {
         department,
-        heading,
         className,
-        date,
-        eventCoordinatorName,
-        students: matchingStudents
-      });
+        eventHeading: eventHeading.trim(),
+        heading: eventHeading.trim(),
+        eventDate: toApiDate(eventDate),
+        date: toDisplayDate(eventDate),
+        coordinatorName: coordinatorName.trim(),
+        eventCoordinatorName: coordinatorName.trim(),
+        students: matchingStudents,
+        studentsSnapshot: matchingStudents
+      };
+
+      const res = await createAttendanceSheet(payload);
 
       if (res && res.success) {
+        const createdData = res.data;
+        setGeneratedSheet(createdData);
         setSuccessMessage(
-          `Attendance sheet generated successfully! Total ${matchingStudents.length} students across ${res.data.pageCount} page(s). Click 'Download PDF' below to export crisp vector PDF.`
+          `Attendance sheet generated successfully! Total ${matchingStudents.length} students across ${createdData.pageCount || Math.ceil(matchingStudents.length / 39) || 1} page(s). Click 'Download Vector PDF' to export.`
         );
-        setGeneratedSheet(res.data);
 
         // Smooth scroll to preview section
         setTimeout(() => {
@@ -169,21 +235,27 @@ function CreateAttendanceSheet() {
         }, 100);
       }
     } catch (err) {
-      setErrorMessage(err.message || "Failed to generate attendance sheet.");
+      setErrorMessage(getReadableAttendanceError(err));
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  // DIRECT VECTOR MULTIPAGE PDF DOWNLOAD ACTION (Part 14)
+  // PART 24: Direct Vector Multipage PDF Download Action
   const handleDownloadPdf = async () => {
     const sheetToExport = generatedSheet || {
       id: "TEMP-PREVIEW",
       schoolName: "School of Engineering, PPSU",
       department,
-      heading,
+      heading: eventHeading,
+      eventHeading,
       className,
-      date,
-      eventCoordinatorName,
-      students: matchingStudents
+      date: toDisplayDate(eventDate),
+      eventDate: toApiDate(eventDate),
+      coordinatorName,
+      eventCoordinatorName: coordinatorName,
+      students: matchingStudents,
+      studentsSnapshot: matchingStudents
     };
 
     // Validate layout before PDF generation
@@ -198,13 +270,12 @@ function CreateAttendanceSheet() {
 
     try {
       const fileName = formatPdfFileName(
-        sheetToExport.heading,
+        sheetToExport.eventHeading || sheetToExport.heading,
         sheetToExport.className,
-        sheetToExport.date,
+        sheetToExport.eventDate || sheetToExport.date,
         sheetToExport.id
       );
 
-      // Direct vector PDF export using jsPDF drawing methods
       await downloadAttendanceSheetPdf({
         sheet: sheetToExport,
         fileName
@@ -212,13 +283,22 @@ function CreateAttendanceSheet() {
       setSuccessMessage("Crisp vector attendance sheet PDF downloaded successfully!");
     } catch (err) {
       console.error("PDF download error", err);
-      setErrorMessage(err.message || "Failed to generate attendance sheet PDF.");
+      setErrorMessage(getReadableAttendanceError(err));
     } finally {
       setIsDownloadingPdf(false);
     }
   };
 
-  const expectedPages = Math.ceil(matchingStudents.length / 39) || 1;
+  const expectedPages = Math.ceil(matchingStudents.length / 39) || 0;
+  const isGenerateDisabled =
+    !department ||
+    !className ||
+    !eventHeading.trim() ||
+    !eventDate ||
+    !coordinatorName.trim() ||
+    matchingStudents.length === 0 ||
+    loadingStudents ||
+    isGenerating;
 
   return (
     <section className="space-y-8 pb-16">
@@ -230,13 +310,13 @@ function CreateAttendanceSheet() {
         badge="Attendance Form"
       />
 
-      {/* DEV-ONLY TYPOGRAPHY & LAYOUT CALIBRATION TEST PANEL (Part 17) */}
+      {/* DEV-ONLY TYPOGRAPHY & LAYOUT CALIBRATION TEST PANEL */}
       {import.meta.env.DEV && (
         <AttendanceTypographyTestPanel
           onLoadTestScenario={({ department: d, className: c, heading: h, students: s }) => {
             setDepartment(d);
             setClassName(c);
-            setHeading(h);
+            setEventHeading(h);
             setMatchingStudents(s);
             setGeneratedSheet(null);
           }}
@@ -261,7 +341,6 @@ function CreateAttendanceSheet() {
             </p>
           </div>
 
-          {/* Default Display-Only Tags */}
           <div className="flex flex-wrap gap-2 text-[11px] font-bold text-slate-600">
             <span className="rounded-full bg-slate-100 px-3 py-1 border border-slate-200">
               School of Engineering, PPSU
@@ -293,8 +372,8 @@ function CreateAttendanceSheet() {
           <DepartmentClassSelector
             department={department}
             className={className}
-            onDepartmentChange={setDepartment}
-            onClassChange={setClassName}
+            onDepartmentChange={handleDepartmentChange}
+            onClassChange={handleClassChange}
             required={true}
             allowCreate={true}
           />
@@ -311,11 +390,13 @@ function CreateAttendanceSheet() {
                 </p>
                 <p className="text-xs font-bold text-slate-700">
                   {loadingStudents ? (
-                    "Loading matching students..."
-                  ) : (
+                    "Loading student roster..."
+                  ) : department && className ? (
                     <>
                       Found <strong className="text-teal-700">{matchingStudents.length} Students</strong> for {department} - {className}
                     </>
+                  ) : (
+                    <span className="text-slate-500 font-normal">Select a department and class to load roster.</span>
                   )}
                 </p>
               </div>
@@ -335,8 +416,8 @@ function CreateAttendanceSheet() {
             </label>
             <input
               type="text"
-              value={heading}
-              onChange={(e) => setHeading(e.target.value)}
+              value={eventHeading}
+              onChange={(e) => setEventHeading(e.target.value)}
               placeholder="e.g. Expert Talk - Prompt Engineering"
               className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-teal-500 focus:bg-white focus:outline-none"
               required
@@ -350,10 +431,9 @@ function CreateAttendanceSheet() {
                 4. Date *
               </label>
               <input
-                type="text"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                placeholder="e.g. 23/07/2026"
+                type="date"
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
                 className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-teal-500 focus:bg-white focus:outline-none font-mono"
                 required
               />
@@ -365,8 +445,8 @@ function CreateAttendanceSheet() {
               </label>
               <input
                 type="text"
-                value={eventCoordinatorName}
-                onChange={(e) => setEventCoordinatorName(e.target.value)}
+                value={coordinatorName}
+                onChange={(e) => setCoordinatorName(e.target.value)}
                 placeholder="e.g. Dr. Jayshri Patil"
                 className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-teal-500 focus:bg-white focus:outline-none"
                 required
@@ -388,16 +468,18 @@ function CreateAttendanceSheet() {
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                className="w-full sm:w-auto rounded-2xl border border-teal-300 bg-teal-50 px-5 py-3 text-xs font-bold text-teal-800 hover:bg-teal-100 shadow-sm transition"
+                disabled={isSavingDraft || isGenerating}
+                className="w-full sm:w-auto rounded-2xl border border-teal-300 bg-teal-50 px-5 py-3 text-xs font-bold text-teal-800 hover:bg-teal-100 shadow-sm transition disabled:opacity-50"
               >
-                Save Draft
+                {isSavingDraft ? "Saving Draft..." : "Save Draft"}
               </button>
 
               <button
                 type="submit"
-                className="w-full sm:w-auto rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-7 py-3 text-sm font-black text-white shadow-lg shadow-teal-500/30 hover:from-emerald-500 hover:to-teal-500 transition active:scale-98"
+                disabled={isGenerateDisabled}
+                className="w-full sm:w-auto rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-7 py-3 text-sm font-black text-white shadow-lg shadow-teal-500/30 hover:from-emerald-500 hover:to-teal-500 transition active:scale-98 disabled:opacity-50"
               >
-                Generate Attendance Sheet
+                {isGenerating ? "Generating Attendance Sheet..." : "Generate Attendance Sheet"}
               </button>
 
               {/* DOWNLOAD VECTOR PDF BUTTON */}
@@ -447,10 +529,13 @@ function CreateAttendanceSheet() {
           sheetData={
             generatedSheet || {
               department,
-              heading,
+              heading: eventHeading,
+              eventHeading,
               className,
-              date,
-              eventCoordinatorName,
+              date: toDisplayDate(eventDate),
+              eventDate: toDisplayDate(eventDate),
+              coordinatorName,
+              eventCoordinatorName: coordinatorName,
               students: matchingStudents
             }
           }

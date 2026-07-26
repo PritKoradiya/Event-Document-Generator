@@ -13,6 +13,7 @@ import {
   getStudentFilterSummary,
   deleteStudentsByClass
 } from "../services/attendanceStudentApi.js";
+import { getReadableAttendanceError } from "../utils/attendanceErrorUtils.js";
 
 function StudentList() {
   const [students, setStudents] = useState([]);
@@ -384,6 +385,8 @@ function StudentList() {
           label: "+ Add Student",
           onClick: () => {
             setEditingStudent(null);
+            if (filterDept !== "All") setFormDept(filterDept);
+            if (filterClass !== "All") setFormClass(filterClass);
             setFormEnroll("");
             setFormName("");
             setFormError("");
@@ -440,6 +443,8 @@ function StudentList() {
             <button
               type="button"
               onClick={() => {
+                if (filterDept !== "All") setBulkDept(filterDept);
+                if (filterClass !== "All") setBulkClass(filterClass);
                 setImportSummary(null);
                 setSkippedRowsTable([]);
                 setBulkError("");

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAttendanceOptions } from "../../hooks/useAttendanceOptions.js";
+import { getCleanDepartmentLabel, getReadableAttendanceError } from "../../utils/attendanceErrorUtils.js";
 
 function AddClassModal({ isOpen, initialDepartmentCode = "", onClose, onSuccess }) {
   const { departments, createClass } = useAttendanceOptions();
@@ -14,19 +15,38 @@ function AddClassModal({ isOpen, initialDepartmentCode = "", onClose, onSuccess 
     if (initialDepartmentCode) {
       setDepartmentCode(initialDepartmentCode);
     } else if (departments.length > 0 && !departmentCode) {
-      setDepartmentCode(departments[0].code);
+      setDepartmentCode(departments[0].code || departments[0].name);
     }
   }, [initialDepartmentCode, departments]);
 
+  // Close on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && isOpen && !isSubmitting) {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isSubmitting]);
+
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    setCode("");
+    setName("");
+    setDescription("");
+    setError("");
+    onClose();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    const trimmedDept = departmentCode.trim().toUpperCase();
-    const trimmedCode = code.trim().toUpperCase();
-    const trimmedName = name.trim();
+    const trimmedDept = departmentCode.replace(/^[-_\s]+/, "").trim().toUpperCase();
+    const trimmedCode = code.replace(/^[-_\s]+/, "").trim().toUpperCase();
+    const trimmedName = name.replace(/^[-_\s]+/, "").trim();
 
     if (!trimmedDept || trimmedDept === "ALL") {
       setError("Please select a valid Department first.");
@@ -45,7 +65,9 @@ function AddClassModal({ isOpen, initialDepartmentCode = "", onClose, onSuccess 
     try {
       const res = await createClass({
         departmentCode: trimmedDept,
+        department: trimmedDept,
         code: trimmedCode,
+        className: trimmedCode,
         name: trimmedName,
         description: description.trim()
       });
@@ -53,21 +75,29 @@ function AddClassModal({ isOpen, initialDepartmentCode = "", onClose, onSuccess 
         setCode("");
         setName("");
         setDescription("");
+        setError("");
         onClose();
         if (onSuccess) {
           onSuccess(res.data || { departmentCode: trimmedDept, code: trimmedCode, name: trimmedName });
         }
       }
     } catch (err) {
-      setError(err.message || "Failed to create class.");
+      setError(getReadableAttendanceError(err));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="app-glass-modal-overlay fixed inset-0 z-[65] flex items-center justify-center p-4 animate-hero-fade-in">
-      <div className="app-glass-modal w-full max-w-md p-6 space-y-5">
+    <div
+      className="app-glass-modal-overlay fixed inset-0 z-[65] flex items-center justify-center p-4 animate-hero-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) {
+          handleClose();
+        }
+      }}
+    >
+      <div className="app-glass-modal w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
             <h3 className="text-lg font-black text-slate-950 font-sans">
@@ -79,7 +109,7 @@ function AddClassModal({ isOpen, initialDepartmentCode = "", onClose, onSuccess 
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSubmitting}
             className="rounded-xl p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
           >
@@ -108,8 +138,8 @@ function AddClassModal({ isOpen, initialDepartmentCode = "", onClose, onSuccess 
               {departments
                 .filter((d) => (d.status || "Active") === "Active")
                 .map((d) => (
-                  <option key={d.id || d.code} value={d.code}>
-                    {d.code} - {d.name || d.code}
+                  <option key={d.id || d._id || d.code} value={d.code || d.name}>
+                    {getCleanDepartmentLabel(d)}
                   </option>
                 ))}
             </select>
@@ -159,7 +189,7 @@ function AddClassModal({ isOpen, initialDepartmentCode = "", onClose, onSuccess 
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
             >
