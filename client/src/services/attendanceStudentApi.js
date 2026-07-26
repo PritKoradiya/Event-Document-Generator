@@ -307,22 +307,87 @@ export const deleteStudent = async (id) => {
   return { success: true, message: "Student deleted successfully." };
 };
 
-export const deleteStudentsByClass = async (department, className) => {
+export const bulkDeleteStudents = async (studentIds = []) => {
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/attendance/students/class?department=${encodeURIComponent(department)}&className=${encodeURIComponent(className)}`,
-      { method: "DELETE" }
-    );
+    const response = await fetch(`${API_BASE_URL}/attendance-students/bulk-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentIds })
+    });
     if (response.ok) {
       return await response.json();
     }
   } catch (e) {
-    // Fallback
+    // Fallback below
   }
 
-  const list = getLocalStudents().filter(
+  const idSet = new Set(studentIds);
+  const currentList = getLocalStudents();
+  const initialCount = currentList.length;
+  const remaining = currentList.filter((s) => !idSet.has(s.id));
+  const deletedCount = initialCount - remaining.length;
+
+  saveLocalStudents(remaining);
+  return {
+    success: true,
+    count: deletedCount,
+    message: `${deletedCount} student(s) deleted successfully.`
+  };
+};
+
+export const getStudentFilterSummary = async ({ department, className } = {}) => {
+  try {
+    const query = new URLSearchParams({ department: department || "", className: className || "" }).toString();
+    const response = await fetch(`${API_BASE_URL}/attendance-students/filter-summary?${query}`);
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (e) {
+    // Fallback below
+  }
+
+  let list = getLocalStudents();
+  if (department && department !== "All") {
+    list = list.filter((s) => s.department.toLowerCase() === department.toLowerCase());
+  }
+  if (className && className !== "All") {
+    list = list.filter((s) => s.className.toLowerCase() === className.toLowerCase());
+  }
+
+  return {
+    success: true,
+    count: list.length,
+    department: department || "All",
+    className: className || "All",
+    students: list
+  };
+};
+
+export const deleteStudentsByClass = async ({ department, className, confirmationText } = {}) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/attendance-students/class`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ department, className, confirmationText })
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (e) {
+    // Fallback below
+  }
+
+  const currentList = getLocalStudents();
+  const initialCount = currentList.length;
+  const remaining = currentList.filter(
     (s) => !(s.department.toLowerCase() === department.toLowerCase() && s.className.toLowerCase() === className.toLowerCase())
   );
-  saveLocalStudents(list);
-  return { success: true, message: `All students for ${department} - ${className} deleted.` };
+  const deletedCount = initialCount - remaining.length;
+
+  saveLocalStudents(remaining);
+  return {
+    success: true,
+    count: deletedCount,
+    message: `All ${deletedCount} students for ${department} - ${className} deleted successfully.`
+  };
 };
