@@ -57,18 +57,57 @@ body {
   -webkit-backdrop-filter: blur(4px);
 }
 
+.module-launch-card,
 .module-galaxy-card {
   position: relative;
   overflow: hidden;
+  border-radius: 28px;
+  isolation: isolate;
   background: linear-gradient(
     145deg,
     rgba(7, 18, 42, 0.72),
     rgba(11, 22, 48, 0.64)
   );
-  border: 1px solid rgba(130, 170, 255, 0.22);
-  box-shadow: 0 22px 60px rgba(0, 4, 18, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(125, 165, 255, 0.24);
+  box-shadow:
+    0 22px 55px rgba(0, 4, 18, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  transition:
+    transform 260ms ease,
+    border-color 260ms ease,
+    box-shadow 260ms ease;
+}
+
+.module-launch-card:hover,
+.module-galaxy-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(140, 185, 255, 0.42);
+  box-shadow:
+    0 30px 75px rgba(0, 4, 20, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+.module-launch-card::before,
+.module-launch-card::after,
+.module-galaxy-card::before,
+.module-galaxy-card::after {
+  border-radius: inherit;
+}
+
+@media (max-width: 1024px) {
+  .module-launch-card,
+  .module-galaxy-card {
+    border-radius: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .module-launch-card,
+  .module-galaxy-card {
+    border-radius: 20px;
+  }
 }
 
 .hero-title-shadow {

@@ -31,13 +31,13 @@ function Dashboard() {
       {/* Four Main Module Cards */}
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4 max-w-7xl mx-auto w-full items-stretch">
         {/* Module Card 1: Event Certificate Generator */}
-        <div className="group module-galaxy-card p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:border-blue-400/50 hover:shadow-blue-500/20 flex flex-col justify-between">
-          <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-blue-500/15 blur-3xl group-hover:bg-blue-500/30 transition-all duration-500" />
-          <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-indigo-500/15 blur-3xl group-hover:bg-indigo-500/30 transition-all duration-500" />
+        <div className="group module-launch-card module-galaxy-card rounded-[20px] md:rounded-[24px] lg:rounded-[28px] overflow-hidden p-6 sm:p-7 transition-all duration-300 hover:border-blue-400/50 hover:shadow-blue-500/20 flex flex-col justify-between">
+          <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-blue-500/15 blur-3xl group-hover:bg-blue-500/30 transition-all duration-500 pointer-events-none" />
+          <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-indigo-500/15 blur-3xl group-hover:bg-indigo-500/30 transition-all duration-500 pointer-events-none" />
 
           <div className="relative z-10">
             {/* Visual CSS Illustration: Certificate Layered Card */}
-            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-blue-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-blue-950/60 p-4 shadow-inner">
+            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-[22px] border border-blue-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-blue-950/60 p-4 shadow-inner">
               <div className="absolute top-2 left-2 h-7 w-7 border-t-2 border-l-2 border-amber-400/60 rounded-tl-lg" />
               <div className="absolute bottom-2 right-2 h-7 w-7 border-b-2 border-r-2 border-amber-400/60 rounded-br-lg" />
 
@@ -84,7 +84,7 @@ function Dashboard() {
           <div className="relative z-10 mt-6">
             <Link
               to="/certificate-dashboard"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/40 active:scale-98"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/40 active:scale-98"
             >
               <span>Launch Certificate Studio</span>
               <span className="text-base transition-transform duration-300 group-hover:translate-x-1.5">→</span>
@@ -93,13 +93,13 @@ function Dashboard() {
         </div>
 
         {/* Module Card 2: Poster Generator */}
-        <div className="group module-galaxy-card p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:border-amber-400/50 hover:shadow-amber-500/20 flex flex-col justify-between">
-          <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-amber-500/15 blur-3xl group-hover:bg-amber-500/30 transition-all duration-500" />
-          <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-orange-500/15 blur-3xl group-hover:bg-orange-500/30 transition-all duration-500" />
+        <div className="group module-launch-card module-galaxy-card rounded-[20px] md:rounded-[24px] lg:rounded-[28px] overflow-hidden p-6 sm:p-7 transition-all duration-300 hover:border-amber-400/50 hover:shadow-amber-500/20 flex flex-col justify-between">
+          <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-amber-500/15 blur-3xl group-hover:bg-amber-500/30 transition-all duration-500 pointer-events-none" />
+          <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-orange-500/15 blur-3xl group-hover:bg-orange-500/30 transition-all duration-500 pointer-events-none" />
 
           <div className="relative z-10">
             {/* Visual CSS Illustration: Event Poster Frame */}
-            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-amber-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-amber-950/60 p-4 shadow-inner">
+            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-[22px] border border-amber-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-amber-950/60 p-4 shadow-inner">
               <div className="relative h-full w-full rounded-xl border border-amber-400/30 bg-slate-950/90 p-3 flex flex-col justify-between shadow-lg">
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">EVENT POSTER</span>
@@ -138,7 +138,7 @@ function Dashboard() {
           <div className="relative z-10 mt-6">
             <Link
               to="/create-poster"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/25 transition-all duration-300 hover:from-amber-500 hover:to-orange-500 hover:shadow-amber-500/40 active:scale-98"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/25 transition-all duration-300 hover:from-amber-500 hover:to-orange-500 hover:shadow-amber-500/40 active:scale-98"
             >
               <span>Launch Poster Studio</span>
               <span className="text-base transition-transform duration-300 group-hover:translate-x-1.5">→</span>
@@ -147,13 +147,13 @@ function Dashboard() {
         </div>
 
         {/* Module Card 3: Event Report Generator */}
-        <div className="group module-galaxy-card p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:border-purple-400/50 hover:shadow-purple-500/20 flex flex-col justify-between">
-          <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-purple-500/15 blur-3xl group-hover:bg-purple-500/30 transition-all duration-500" />
-          <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-pink-500/15 blur-3xl group-hover:bg-pink-500/30 transition-all duration-500" />
+        <div className="group module-launch-card module-galaxy-card rounded-[20px] md:rounded-[24px] lg:rounded-[28px] overflow-hidden p-6 sm:p-7 transition-all duration-300 hover:border-purple-400/50 hover:shadow-purple-500/20 flex flex-col justify-between">
+          <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-purple-500/15 blur-3xl group-hover:bg-purple-500/30 transition-all duration-500 pointer-events-none" />
+          <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-pink-500/15 blur-3xl group-hover:bg-pink-500/30 transition-all duration-500 pointer-events-none" />
 
           <div className="relative z-10">
             {/* Visual CSS Illustration: Event Report Stacked Pages */}
-            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-purple-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-purple-950/60 p-4 shadow-inner">
+            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-[22px] border border-purple-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-purple-950/60 p-4 shadow-inner">
               <div className="absolute right-8 top-3 h-[90%] w-24 rounded-lg bg-purple-500/10 border border-purple-400/10 transform rotate-3 group-hover:rotate-6 transition-transform duration-300" />
               
               <div className="relative h-full w-full rounded-xl border border-purple-400/30 bg-slate-950/90 p-3 flex justify-between gap-3 shadow-lg">
@@ -206,7 +206,7 @@ function Dashboard() {
           <div className="relative z-10 mt-6">
             <Link
               to="/report-dashboard"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-teal-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-purple-500/25 transition-all duration-300 hover:from-purple-500 hover:to-pink-500 hover:shadow-purple-500/40 active:scale-98"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-purple-600 via-pink-600 to-teal-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-purple-500/25 transition-all duration-300 hover:from-purple-500 hover:to-pink-500 hover:shadow-purple-500/40 active:scale-98"
             >
               <span>Launch Report Studio</span>
               <span className="text-base transition-transform duration-300 group-hover:translate-x-1.5">→</span>
@@ -215,13 +215,13 @@ function Dashboard() {
         </div>
 
         {/* Module Card 4: Attendance Sheet Generator */}
-        <div className="group module-galaxy-card p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:border-teal-400/50 hover:shadow-teal-500/20 flex flex-col justify-between">
-          <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-teal-500/15 blur-3xl group-hover:bg-teal-500/30 transition-all duration-500" />
-          <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-emerald-500/15 blur-3xl group-hover:bg-emerald-500/30 transition-all duration-500" />
+        <div className="group module-launch-card module-galaxy-card rounded-[20px] md:rounded-[24px] lg:rounded-[28px] overflow-hidden p-6 sm:p-7 transition-all duration-300 hover:border-teal-400/50 hover:shadow-teal-500/20 flex flex-col justify-between">
+          <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full bg-teal-500/15 blur-3xl group-hover:bg-teal-500/30 transition-all duration-500 pointer-events-none" />
+          <div className="absolute -left-16 -bottom-16 h-60 w-60 rounded-full bg-emerald-500/15 blur-3xl group-hover:bg-emerald-500/30 transition-all duration-500 pointer-events-none" />
 
           <div className="relative z-10">
             {/* Visual CSS Illustration: Multipage Attendance Sheet Table */}
-            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-2xl border border-teal-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-teal-950/60 p-4 shadow-inner">
+            <div className="relative mb-6 h-36 w-full overflow-hidden rounded-[22px] border border-teal-400/20 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-teal-950/60 p-4 shadow-inner">
               <div className="absolute inset-x-6 top-3 h-full rounded-xl bg-teal-500/10 border border-teal-400/10 transform rotate-1 group-hover:rotate-2 transition-transform duration-300" />
               
               <div className="relative h-full w-full rounded-xl border border-teal-400/30 bg-slate-950/90 p-2.5 flex flex-col justify-between shadow-lg">
@@ -276,7 +276,7 @@ function Dashboard() {
           <div className="relative z-10 mt-6">
             <Link
               to="/attendance-dashboard"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-500/25 transition-all duration-300 hover:from-emerald-500 hover:to-teal-500 hover:shadow-teal-500/40 active:scale-98"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-500/25 transition-all duration-300 hover:from-emerald-500 hover:to-teal-500 hover:shadow-teal-500/40 active:scale-98"
             >
               <span>Launch Attendance Studio</span>
               <span className="text-base transition-transform duration-300 group-hover:translate-x-1.5">→</span>
