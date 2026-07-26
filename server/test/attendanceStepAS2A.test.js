@@ -70,9 +70,9 @@ test("CSV template returns the required downloadable content", () => {
 test("CSV import handles valid, duplicate, invalid, empty, and wrong-header rows", async () => {
   const originalReadyState = mongoose.connection.readyState;
   const originalFind = AttendanceStudent.find;
-  const originalBulkWrite = AttendanceStudent.bulkWrite;
   const originalClassExists = AttendanceClass.exists;
   const originalDepartmentExists = AttendanceDepartment.exists;
+  const originalBulkWrite = AttendanceStudent.bulkWrite;
   const storedStudents = [];
 
   mongoose.connection.readyState = 1;
@@ -83,8 +83,14 @@ test("CSV import handles valid, duplicate, invalid, empty, and wrong-header rows
 
     if (filters.department) {
       matchedStudents = matchedStudents.filter((student) => {
-        return student.department === filters.department
-          && student.className === filters.className;
+        const departmentMatches = filters.department instanceof RegExp
+          ? filters.department.test(student.department)
+          : student.department === filters.department;
+        const classMatches = filters.className instanceof RegExp
+          ? filters.className.test(student.className)
+          : student.className === filters.className;
+
+        return departmentMatches && classMatches;
       });
     }
 
@@ -191,10 +197,14 @@ test("CSV import handles valid, duplicate, invalid, empty, and wrong-header rows
 test("student list combines filters, escaped search, and default sorting", async () => {
   const originalReadyState = mongoose.connection.readyState;
   const originalFind = AttendanceStudent.find;
+  const originalClassExists = AttendanceClass.exists;
+  const originalDepartmentExists = AttendanceDepartment.exists;
   let receivedFilters;
   let receivedSort;
 
   mongoose.connection.readyState = 1;
+  AttendanceClass.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
+  AttendanceDepartment.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
   AttendanceStudent.find = (filters) => {
     receivedFilters = filters;
 
@@ -217,16 +227,42 @@ test("student list combines filters, escaped search, and default sorting", async
     }, response);
 
     assert.equal(response.statusCode, 200);
-    assert.equal(receivedFilters.department, "CE/IT");
-    assert.equal(receivedFilters.className, "CE4");
+    assert.equal(receivedFilters.department.source, "^CE\\/IT$");
+    assert.equal(receivedFilters.className.source, "^CE4$");
     assert.equal(receivedFilters.$or[0].enrollmentNo.source, "prit\\.");
     assert.equal(receivedFilters.$or[1].studentName.flags, "i");
     assert.deepEqual(receivedSort, {
       enrollmentNo: 1,
       studentName: 1
     });
+
+    const departmentOnlyResponse = createResponse();
+    await getStudents({
+      query: {
+        department: "cse"
+      }
+    }, departmentOnlyResponse);
+
+    assert.equal(departmentOnlyResponse.statusCode, 200);
+    assert.equal(receivedFilters.department.source, "^CSE$");
+    assert.equal("className" in receivedFilters, false);
+
+    const classOnlyResponse = createResponse();
+    await getStudents({
+      query: {
+        selectedClass: "CSE1"
+      }
+    }, classOnlyResponse);
+
+    assert.equal(classOnlyResponse.statusCode, 400);
+    assert.equal(
+      classOnlyResponse.body.message,
+      "Department is required when filtering by class."
+    );
   } finally {
     AttendanceStudent.find = originalFind;
+    AttendanceClass.exists = originalClassExists;
+    AttendanceDepartment.exists = originalDepartmentExists;
     mongoose.connection.readyState = originalReadyState;
   }
 });
@@ -267,6 +303,8 @@ test("CSV upload rejects files larger than 2MB", async () => {
 test("attendance generation, update, regeneration, and duplication preserve snapshots correctly", async () => {
   const originalReadyState = mongoose.connection.readyState;
   const originalStudentFind = AttendanceStudent.find;
+  const originalClassExists = AttendanceClass.exists;
+  const originalDepartmentExists = AttendanceDepartment.exists;
   const originalSheetCreate = AttendanceSheet.create;
   const originalSheetFindById = AttendanceSheet.findById;
   const originalSheetFindOne = AttendanceSheet.findOne;
@@ -284,6 +322,8 @@ test("attendance generation, update, regeneration, and duplication preserve snap
   let latestSheet = null;
 
   mongoose.connection.readyState = 1;
+  AttendanceClass.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
+  AttendanceDepartment.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
   AttendanceStudent.find = (filters) => ({
     sort: async () => currentStudents.filter((student) => {
       const departmentMatches = filters.department instanceof RegExp
@@ -323,10 +363,10 @@ test("attendance generation, update, regeneration, and duplication preserve snap
     await createAttendanceSheet({
       body: {
         department: "CE/IT",
-        heading: "TECHNICAL EVENT",
+        eventHeading: "TECHNICAL EVENT",
         className: "ce4",
-        attendanceDate: "2026-07-23",
-        eventCoordinatorName: "COORDINATOR"
+        eventDate: "2026-07-23",
+        coordinatorName: "COORDINATOR"
       }
     }, createResponseResult);
 
@@ -335,8 +375,8 @@ test("attendance generation, update, regeneration, and duplication preserve snap
     assert.equal(generatedSheet.totalStudents, 45);
     assert.equal(generatedSheet.rowsPerPage, 39);
     assert.equal(generatedSheet.totalPages, 2);
-    assert.equal(generatedSheet.students[44].serialNo, 45);
-    assert.ok(generatedSheet.students.every((student) => student.signature === ""));
+    assert.equal(generatedSheet.studentsSnapshot[44].serialNo, 45);
+    assert.ok(generatedSheet.studentsSnapshot.every((student) => student.signature === ""));
 
     currentStudents.push({
       enrollmentNo: "24SE02CE046",
@@ -352,17 +392,17 @@ test("attendance generation, update, regeneration, and duplication preserve snap
         id: String(generatedSheet._id)
       },
       body: {
-        heading: "UPDATED EVENT",
+        eventHeading: "UPDATED EVENT",
         refreshStudents: true
       }
     }, updateResponseResult);
 
     assert.equal(updateResponseResult.statusCode, 200);
-    assert.equal(generatedSheet.students.length, 45);
+    assert.equal(updateResponseResult.body.data.studentsSnapshot.length, 45);
 
     const originalSheetId = generatedSheet.sheetId;
-    const originalAttendanceDate = generatedSheet.attendanceDate;
-    const originalCoordinator = generatedSheet.eventCoordinatorName;
+    const originalEventDate = generatedSheet.eventDate;
+    const originalCoordinator = generatedSheet.coordinatorName;
     const regenerateResponseResult = createResponse();
     await regenerateAttendanceSheet({
       params: {
@@ -371,12 +411,13 @@ test("attendance generation, update, regeneration, and duplication preserve snap
     }, regenerateResponseResult);
 
     assert.equal(regenerateResponseResult.statusCode, 200);
-    assert.equal(generatedSheet.students.length, 46);
-    assert.equal(generatedSheet.students[45].serialNo, 46);
-    assert.equal(generatedSheet.sheetId, originalSheetId);
-    assert.equal(generatedSheet.heading, "UPDATED EVENT");
-    assert.equal(generatedSheet.attendanceDate, originalAttendanceDate);
-    assert.equal(generatedSheet.eventCoordinatorName, originalCoordinator);
+    const regeneratedSheet = regenerateResponseResult.body.data;
+    assert.equal(regeneratedSheet.studentsSnapshot.length, 46);
+    assert.equal(regeneratedSheet.studentsSnapshot[45].serialNo, 46);
+    assert.equal(regeneratedSheet.sheetId, originalSheetId);
+    assert.equal(regeneratedSheet.eventHeading, "UPDATED EVENT");
+    assert.equal(regeneratedSheet.eventDate, originalEventDate);
+    assert.equal(regeneratedSheet.coordinatorName, originalCoordinator);
 
     const duplicateResponseResult = createResponse();
     await duplicateAttendanceSheet({
@@ -389,10 +430,12 @@ test("attendance generation, update, regeneration, and duplication preserve snap
     const duplicatedSheet = duplicateResponseResult.body.data;
     assert.equal(duplicatedSheet.status, "Draft");
     assert.notEqual(duplicatedSheet.sheetId, generatedSheet.sheetId);
-    assert.equal(duplicatedSheet.students.length, 46);
-    assert.ok(duplicatedSheet.students.every((student) => student.signature === ""));
+    assert.equal(duplicatedSheet.studentsSnapshot.length, 46);
+    assert.ok(duplicatedSheet.studentsSnapshot.every((student) => student.signature === ""));
   } finally {
     AttendanceStudent.find = originalStudentFind;
+    AttendanceClass.exists = originalClassExists;
+    AttendanceDepartment.exists = originalDepartmentExists;
     AttendanceSheet.create = originalSheetCreate;
     AttendanceSheet.findById = originalSheetFindById;
     AttendanceSheet.findOne = originalSheetFindOne;
@@ -404,11 +447,11 @@ test("attendance sheet schema allows an empty draft but rejects an empty generat
   const commonData = {
     sheetId: "ATT-2026-9999",
     department: "CE/IT",
-    heading: "EVENT",
+    eventHeading: "EVENT",
     className: "CE4",
-    attendanceDate: "2026-07-23",
-    eventCoordinatorName: "COORDINATOR",
-    students: [],
+    eventDate: "2026-07-23",
+    coordinatorName: "COORDINATOR",
+    studentsSnapshot: [],
     totalStudents: 0,
     rowsPerPage: 39,
     totalPages: 0
@@ -422,8 +465,29 @@ test("attendance sheet schema allows an empty draft but rejects an empty generat
     sheetId: "ATT-2026-9998",
     status: "Generated"
   });
+  const legacyGenerated = new AttendanceSheet({
+    sheetId: "ATT-2026-9997",
+    department: "CE/IT",
+    heading: "LEGACY EVENT",
+    className: "CE4",
+    attendanceDate: "2026-07-22",
+    eventCoordinatorName: "LEGACY COORDINATOR",
+    students: [{
+      serialNo: 1,
+      enrollmentNo: "24SE02CE001",
+      studentName: "LEGACY STUDENT",
+      signature: ""
+    }],
+    totalStudents: 1,
+    rowsPerPage: 39,
+    totalPages: 1,
+    status: "Generated"
+  });
 
   await draft.validate();
+  await legacyGenerated.validate();
+  assert.equal(legacyGenerated.eventHeading, undefined);
+  assert.equal(legacyGenerated.studentsSnapshot, undefined);
   await assert.rejects(
     generated.validate(),
     /generated attendance sheet must contain students/i

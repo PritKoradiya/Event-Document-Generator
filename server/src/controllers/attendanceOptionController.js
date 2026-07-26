@@ -5,13 +5,14 @@ import AttendanceSheet from "../models/AttendanceSheet.js";
 import AttendanceStudent from "../models/AttendanceStudent.js";
 import {
   createCaseInsensitiveExactPattern,
+  getAttendanceDepartmentState,
   getLegacyAttendancePairs,
-  isAttendanceDepartmentKnown
 } from "../services/attendanceOptionService.js";
 import {
   normalizeClassName,
   normalizeDepartmentName,
-  normalizeDisplayName
+  normalizeDisplayName,
+  resolveClassName
 } from "../utils/attendanceOptionUtils.js";
 
 const isDatabaseConnected = () => mongoose.connection.readyState === 1;
@@ -41,11 +42,16 @@ const validateIsActive = (value) => {
   }
 };
 
-const controllerErrorResponse = (res, error, fallbackMessage) => {
+const controllerErrorResponse = (
+  res,
+  error,
+  fallbackMessage,
+  duplicateMessage = "An attendance option with these values already exists."
+) => {
   if (error?.code === 11000) {
     return res.status(409).json({
       success: false,
-      message: "An attendance option with these values already exists."
+      message: duplicateMessage
     });
   }
 
@@ -71,7 +77,7 @@ const getDepartmentDependencies = async (department) => {
       department: departmentPattern
     }),
     AttendanceClass.exists({
-      department
+      department: departmentPattern
     }),
     AttendanceSheet.exists({
       department: departmentPattern
@@ -109,6 +115,13 @@ const hasDependencies = (dependencies) => {
   return Object.values(dependencies).some(Boolean);
 };
 
+const naturalCompare = (firstValue, secondValue) => {
+  return firstValue.localeCompare(secondValue, undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
+};
+
 export const getAttendanceOptions = async (req, res) => {
   try {
     if (!isDatabaseConnected()) {
@@ -116,14 +129,10 @@ export const getAttendanceOptions = async (req, res) => {
     }
 
     const [masterDepartments, masterClasses, legacyPairs] = await Promise.all([
-      AttendanceDepartment.find({
-        isActive: true
-      }).sort({
+      AttendanceDepartment.find().sort({
         name: 1
       }),
-      AttendanceClass.find({
-        isActive: true
-      }).sort({
+      AttendanceClass.find().sort({
         department: 1,
         className: 1
       }),
@@ -132,19 +141,31 @@ export const getAttendanceOptions = async (req, res) => {
     const departmentsByName = new Map();
 
     masterDepartments.forEach((department) => {
-      departmentsByName.set(department.name, {
-        _id: department._id,
-        name: department.name,
-        displayName: department.displayName,
-        classes: []
-      });
+      try {
+        const name = normalizeDepartmentName(department.name);
+        const existingDepartment = departmentsByName.get(name);
+
+        if (!existingDepartment || (!existingDepartment.isActive && department.isActive)) {
+          departmentsByName.set(name, {
+            _id: department._id ?? null,
+            name,
+            displayName: department.displayName || name,
+            isActive: department.isActive !== false,
+            classes: existingDepartment?.classes || []
+          });
+        }
+      } catch {
+        // Invalid historical master values are excluded from selectable options.
+      }
     });
 
     legacyPairs.forEach(({ department }) => {
       if (!departmentsByName.has(department)) {
         departmentsByName.set(department, {
+          _id: null,
           name: department,
           displayName: department,
+          isActive: true,
           classes: []
         });
       }
@@ -153,18 +174,40 @@ export const getAttendanceOptions = async (req, res) => {
     const classKeys = new Set();
 
     masterClasses.forEach((attendanceClass) => {
-      const department = departmentsByName.get(attendanceClass.department);
+      let departmentName;
+      let className;
 
-      if (!department) {
+      try {
+        departmentName = normalizeDepartmentName(attendanceClass.department);
+        className = normalizeClassName(attendanceClass.className);
+      } catch {
         return;
       }
 
-      const key = `${attendanceClass.department}\u0000${attendanceClass.className}`;
+      if (!departmentsByName.has(departmentName)) {
+        departmentsByName.set(departmentName, {
+          _id: null,
+          name: departmentName,
+          displayName: departmentName,
+          isActive: false,
+          classes: []
+        });
+      }
+
+      const department = departmentsByName.get(departmentName);
+      const key = `${departmentName}\u0000${className}`;
+
+      if (classKeys.has(key)) {
+        return;
+      }
+
       classKeys.add(key);
       department.classes.push({
-        _id: attendanceClass._id,
-        className: attendanceClass.className,
-        displayName: attendanceClass.displayName
+        _id: attendanceClass._id ?? null,
+        department: departmentName,
+        className,
+        displayName: attendanceClass.displayName || className,
+        isActive: attendanceClass.isActive !== false
       });
     });
 
@@ -176,8 +219,11 @@ export const getAttendanceOptions = async (req, res) => {
       }
 
       departmentsByName.get(department).classes.push({
+        _id: null,
+        department,
         className,
-        displayName: className
+        displayName: className,
+        isActive: departmentsByName.get(department).isActive
       });
       classKeys.add(key);
     });
@@ -186,11 +232,11 @@ export const getAttendanceOptions = async (req, res) => {
       .map((department) => ({
         ...department,
         classes: department.classes.sort((firstClass, secondClass) => {
-          return firstClass.className.localeCompare(secondClass.className);
+          return naturalCompare(firstClass.className, secondClass.className);
         })
       }))
       .sort((firstDepartment, secondDepartment) => {
-        return firstDepartment.name.localeCompare(secondDepartment.name);
+        return naturalCompare(firstDepartment.name, secondDepartment.name);
       });
 
     return res.status(200).json({
@@ -215,7 +261,7 @@ export const createDepartment = async (req, res) => {
     const displayName = normalizeDisplayName(req.body?.displayName);
     const description = normalizeDescription(req.body?.description);
     const duplicateDepartment = await AttendanceDepartment.findOne({
-      name
+      name: createCaseInsensitiveExactPattern(name)
     });
 
     if (duplicateDepartment) {
@@ -234,11 +280,16 @@ export const createDepartment = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Department created successfully",
+      message: "Department added successfully",
       data: department
     });
   } catch (error) {
-    return controllerErrorResponse(res, error, "Failed to create department");
+    return controllerErrorResponse(
+      res,
+      error,
+      "Failed to create department",
+      "This department already exists."
+    );
   }
 };
 
@@ -283,7 +334,7 @@ export const updateDepartment = async (req, res) => {
           _id: {
             $ne: department._id
           },
-          name: nextName
+          name: createCaseInsensitiveExactPattern(nextName)
         });
 
         if (duplicateDepartment) {
@@ -317,7 +368,12 @@ export const updateDepartment = async (req, res) => {
       data: department
     });
   } catch (error) {
-    return controllerErrorResponse(res, error, "Failed to update department");
+    return controllerErrorResponse(
+      res,
+      error,
+      "Failed to update department",
+      "This department already exists."
+    );
   }
 };
 
@@ -371,21 +427,28 @@ export const createClass = async (req, res) => {
     }
 
     const department = normalizeDepartmentName(req.body?.department);
-    const className = normalizeClassName(req.body?.className);
+    const className = normalizeClassName(resolveClassName(req.body));
     const displayName = normalizeDisplayName(req.body?.displayName);
     const description = normalizeDescription(req.body?.description);
-    const departmentExists = await isAttendanceDepartmentKnown(department);
+    const departmentState = await getAttendanceDepartmentState(department);
 
-    if (!departmentExists) {
+    if (!departmentState.exists) {
       return res.status(400).json({
         success: false,
-        message: "The selected department does not exist. Please create it first."
+        message: "The selected department does not exist."
+      });
+    }
+
+    if (!departmentState.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "The selected department is inactive."
       });
     }
 
     const duplicateClass = await AttendanceClass.findOne({
-      department,
-      className
+      department: createCaseInsensitiveExactPattern(department),
+      className: createCaseInsensitiveExactPattern(className)
     });
 
     if (duplicateClass) {
@@ -405,11 +468,16 @@ export const createClass = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Class created successfully",
+      message: "Class added successfully",
       data: attendanceClass
     });
   } catch (error) {
-    return controllerErrorResponse(res, error, "Failed to create class");
+    return controllerErrorResponse(
+      res,
+      error,
+      "Failed to create class",
+      "This class already exists in the selected department."
+    );
   }
 };
 
@@ -440,9 +508,10 @@ export const updateClass = async (req, res) => {
     const nextDepartment = req.body?.department === undefined
       ? attendanceClass.department
       : normalizeDepartmentName(req.body.department);
-    const nextClassName = req.body?.className === undefined
+    const requestedClassName = resolveClassName(req.body);
+    const nextClassName = requestedClassName === undefined
       ? attendanceClass.className
-      : normalizeClassName(req.body.className);
+      : normalizeClassName(requestedClassName);
     const identityChanged = nextDepartment !== attendanceClass.department
       || nextClassName !== attendanceClass.className;
 
@@ -459,12 +528,19 @@ export const updateClass = async (req, res) => {
         });
       }
 
-      const departmentExists = await isAttendanceDepartmentKnown(nextDepartment);
+      const departmentState = await getAttendanceDepartmentState(nextDepartment);
 
-      if (!departmentExists) {
+      if (!departmentState.exists) {
         return res.status(400).json({
           success: false,
-          message: "The selected department does not exist. Please create it first."
+          message: "The selected department does not exist."
+        });
+      }
+
+      if (!departmentState.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "The selected department is inactive."
         });
       }
 
@@ -472,8 +548,8 @@ export const updateClass = async (req, res) => {
         _id: {
           $ne: attendanceClass._id
         },
-        department: nextDepartment,
-        className: nextClassName
+        department: createCaseInsensitiveExactPattern(nextDepartment),
+        className: createCaseInsensitiveExactPattern(nextClassName)
       });
 
       if (duplicateClass) {
@@ -507,7 +583,12 @@ export const updateClass = async (req, res) => {
       data: attendanceClass
     });
   } catch (error) {
-    return controllerErrorResponse(res, error, "Failed to update class");
+    return controllerErrorResponse(
+      res,
+      error,
+      "Failed to update class",
+      "This class already exists in the selected department."
+    );
   }
 };
 
@@ -573,7 +654,7 @@ export const syncAttendanceOptions = async (req, res) => {
     for (const name of departmentNames) {
       const result = await AttendanceDepartment.updateOne(
         {
-          name
+          name: createCaseInsensitiveExactPattern(name)
         },
         {
           $setOnInsert: {
@@ -594,8 +675,8 @@ export const syncAttendanceOptions = async (req, res) => {
     for (const { department, className } of legacyPairs) {
       const result = await AttendanceClass.updateOne(
         {
-          department,
-          className
+          department: createCaseInsensitiveExactPattern(department),
+          className: createCaseInsensitiveExactPattern(className)
         },
         {
           $setOnInsert: {
@@ -616,10 +697,10 @@ export const syncAttendanceOptions = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Existing attendance options synchronized successfully",
+      message: "Attendance options synchronized successfully",
       data: {
-        insertedDepartmentCount,
-        insertedClassCount
+        departmentsCreated: insertedDepartmentCount,
+        classesCreated: insertedClassCount
       }
     });
   } catch (error) {

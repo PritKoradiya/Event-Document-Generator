@@ -165,6 +165,14 @@ cd server
 npm run seed:attendance-options
 ```
 
+With the backend running in development, verify the normalized department,
+class, student, and attendance-sheet flow without leaving test records:
+
+```bash
+cd server
+npm run test:attendance-flow
+```
+
 #### Frontend Routes
 
 - `/` - Main Landing Workspace

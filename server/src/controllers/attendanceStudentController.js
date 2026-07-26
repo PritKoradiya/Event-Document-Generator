@@ -1,13 +1,16 @@
 import mongoose from "mongoose";
 import { parse } from "csv-parse/sync";
 import AttendanceStudent from "../models/AttendanceStudent.js";
-import { isAttendanceOptionPairValid } from "../services/attendanceOptionService.js";
+import {
+  createCaseInsensitiveExactPattern,
+  getAttendanceOptionErrorMessage,
+  getAttendanceOptionPairStatus
+} from "../services/attendanceOptionService.js";
 import {
   normalizeClassName,
-  normalizeDepartmentName
+  normalizeDepartmentName,
+  resolveClassName
 } from "../utils/attendanceOptionUtils.js";
-
-const INVALID_ATTENDANCE_OPTION_MESSAGE = "The selected department or class does not exist. Please create it first.";
 
 const isDatabaseConnected = () => mongoose.connection.readyState === 1;
 
@@ -24,18 +27,18 @@ const isMissingRequiredValue = (value) => {
   );
 };
 
-const normalizeStudentData = ({
-  enrollmentNo,
-  studentName,
-  department,
-  className,
-  isActive
-}) => {
+const normalizeStudentData = (source) => {
+  const {
+    enrollmentNo,
+    studentName,
+    department,
+    isActive
+  } = source;
   const normalizedData = {
-    enrollmentNo: String(enrollmentNo).trim().toUpperCase(),
-    studentName: String(studentName).trim().toUpperCase(),
+    enrollmentNo: String(enrollmentNo ?? "").trim().toUpperCase(),
+    studentName: String(studentName ?? "").trim().toUpperCase(),
     department: normalizeDepartmentName(department),
-    className: normalizeClassName(className)
+    className: normalizeClassName(resolveClassName(source))
   };
 
   if (typeof isActive === "boolean") {
@@ -43,6 +46,10 @@ const normalizeStudentData = ({
   }
 
   return normalizedData;
+};
+
+const validateAttendanceOptionPair = async (department, className) => {
+  return getAttendanceOptionPairStatus(department, className);
 };
 
 const duplicateStudentResponse = (res) => {
@@ -113,7 +120,9 @@ export const importStudentsFromCsv = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    const { department, className } = req.body || {};
+    const body = req.body || {};
+    const department = body.department;
+    const className = resolveClassName(body);
 
     if (isMissingRequiredValue(department) || isMissingRequiredValue(className)) {
       return res.status(400).json({
@@ -178,15 +187,15 @@ export const importStudentsFromCsv = async (req, res) => {
 
     const normalizedDepartment = normalizeDepartmentName(department);
     const normalizedClassName = normalizeClassName(className);
-    const attendanceOptionIsValid = await isAttendanceOptionPairValid(
+    const attendanceOptionStatus = await validateAttendanceOptionPair(
       normalizedDepartment,
       normalizedClassName
     );
 
-    if (!attendanceOptionIsValid) {
+    if (!attendanceOptionStatus.isValid) {
       return res.status(400).json({
         success: false,
-        message: INVALID_ATTENDANCE_OPTION_MESSAGE
+        message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
       });
     }
 
@@ -241,8 +250,8 @@ export const importStudentsFromCsv = async (req, res) => {
 
     const existingStudents = uniqueRows.length > 0
       ? await AttendanceStudent.find({
-        department: normalizedDepartment,
-        className: normalizedClassName,
+        department: createCaseInsensitiveExactPattern(normalizedDepartment),
+        className: createCaseInsensitiveExactPattern(normalizedClassName),
         enrollmentNo: {
           $in: uniqueRows.map((row) => row.enrollmentNo)
         }
@@ -337,8 +346,16 @@ export const createStudent = async (req, res) => {
     }
 
     const body = req.body || {};
-    const requiredFields = ["enrollmentNo", "studentName", "department", "className"];
-    const missingFields = requiredFields.filter((field) => isMissingRequiredValue(body[field]));
+    const className = resolveClassName(body);
+    const requiredValues = {
+      enrollmentNo: body.enrollmentNo,
+      studentName: body.studentName,
+      department: body.department,
+      className
+    };
+    const missingFields = Object.entries(requiredValues)
+      .filter(([, value]) => isMissingRequiredValue(value))
+      .map(([field]) => field);
 
     if (missingFields.length > 0) {
       return res.status(400).json({
@@ -347,17 +364,30 @@ export const createStudent = async (req, res) => {
       });
     }
 
-    const normalizedStudent = normalizeStudentData(body);
-    const attendanceOptionIsValid = await isAttendanceOptionPairValid(
+    const normalizedStudent = normalizeStudentData({
+      ...body,
+      className
+    });
+    const attendanceOptionStatus = await validateAttendanceOptionPair(
       normalizedStudent.department,
       normalizedStudent.className
     );
 
-    if (!attendanceOptionIsValid) {
+    if (!attendanceOptionStatus.isValid) {
       return res.status(400).json({
         success: false,
-        message: INVALID_ATTENDANCE_OPTION_MESSAGE
+        message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
       });
+    }
+
+    const existingStudent = await AttendanceStudent.exists({
+      department: createCaseInsensitiveExactPattern(normalizedStudent.department),
+      className: createCaseInsensitiveExactPattern(normalizedStudent.className),
+      enrollmentNo: createCaseInsensitiveExactPattern(normalizedStudent.enrollmentNo)
+    });
+
+    if (existingStudent) {
+      return duplicateStudentResponse(res);
     }
 
     const student = await AttendanceStudent.create(normalizedStudent);
@@ -378,7 +408,12 @@ export const bulkCreateStudents = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    const { department, className, students } = req.body || {};
+    const body = req.body || {};
+    const {
+      department,
+      students
+    } = body;
+    const className = resolveClassName(body);
 
     if (isMissingRequiredValue(department) || isMissingRequiredValue(className)) {
       return res.status(400).json({
@@ -416,15 +451,15 @@ export const bulkCreateStudents = async (req, res) => {
 
     const normalizedDepartment = normalizeDepartmentName(department);
     const normalizedClassName = normalizeClassName(className);
-    const attendanceOptionIsValid = await isAttendanceOptionPairValid(
+    const attendanceOptionStatus = await validateAttendanceOptionPair(
       normalizedDepartment,
       normalizedClassName
     );
 
-    if (!attendanceOptionIsValid) {
+    if (!attendanceOptionStatus.isValid) {
       return res.status(400).json({
         success: false,
-        message: INVALID_ATTENDANCE_OPTION_MESSAGE
+        message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
       });
     }
 
@@ -447,8 +482,8 @@ export const bulkCreateStudents = async (req, res) => {
 
     const uniqueStudents = [...uniqueStudentsByEnrollment.values()];
     const existingStudents = await AttendanceStudent.find({
-      department: normalizedDepartment,
-      className: normalizedClassName,
+      department: createCaseInsensitiveExactPattern(normalizedDepartment),
+      className: createCaseInsensitiveExactPattern(normalizedClassName),
       enrollmentNo: {
         $in: uniqueStudents.map((student) => student.enrollmentNo)
       }
@@ -506,19 +541,45 @@ export const getStudents = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
+    const query = req.query || {};
+    const requestedDepartment = query.department;
+    const requestedClassName = resolveClassName(query);
+    const hasDepartment = !isMissingRequiredValue(requestedDepartment);
+    const hasClassName = !isMissingRequiredValue(requestedClassName);
     const filters = {};
 
-    if (typeof req.query.department === "string" && req.query.department.trim()) {
-      filters.department = req.query.department.trim();
+    if (hasClassName && !hasDepartment) {
+      return res.status(400).json({
+        success: false,
+        message: "Department is required when filtering by class."
+      });
     }
 
-    if (typeof req.query.className === "string" && req.query.className.trim()) {
-      filters.className = req.query.className.trim().toUpperCase();
+    if (hasDepartment) {
+      const department = normalizeDepartmentName(requestedDepartment);
+      filters.department = createCaseInsensitiveExactPattern(department);
+
+      if (hasClassName) {
+        const className = normalizeClassName(requestedClassName);
+        const attendanceOptionStatus = await validateAttendanceOptionPair(
+          department,
+          className
+        );
+
+        if (!attendanceOptionStatus.isValid) {
+          return res.status(400).json({
+            success: false,
+            message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
+          });
+        }
+
+        filters.className = createCaseInsensitiveExactPattern(className);
+      }
     }
 
-    if (typeof req.query.search === "string" && req.query.search.trim()) {
+    if (typeof query.search === "string" && query.search.trim()) {
       const searchPattern = new RegExp(
-        escapeRegularExpression(req.query.search.trim()),
+        escapeRegularExpression(query.search.trim()),
         "i"
       );
 
@@ -539,10 +600,7 @@ export const getStudents = async (req, res) => {
       data: students
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch students"
-    });
+    return validationErrorResponse(res, error, "Failed to fetch students");
   }
 };
 
@@ -552,25 +610,40 @@ export const getStudentFilterSummary = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    if (isMissingRequiredValue(req.query.department)) {
+    const query = req.query || {};
+    const requestedClassName = resolveClassName(query);
+
+    if (isMissingRequiredValue(query.department)) {
       return res.status(400).json({
         success: false,
         message: "Department is required."
       });
     }
 
-    if (isMissingRequiredValue(req.query.className)) {
+    if (isMissingRequiredValue(requestedClassName)) {
       return res.status(400).json({
         success: false,
         message: "Class name is required."
       });
     }
 
-    const department = String(req.query.department).trim();
-    const className = String(req.query.className).trim().toUpperCase();
-    const totalStudents = await AttendanceStudent.countDocuments({
+    const department = normalizeDepartmentName(query.department);
+    const className = normalizeClassName(requestedClassName);
+    const attendanceOptionStatus = await validateAttendanceOptionPair(
       department,
       className
+    );
+
+    if (!attendanceOptionStatus.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
+      });
+    }
+
+    const totalStudents = await AttendanceStudent.countDocuments({
+      department: createCaseInsensitiveExactPattern(department),
+      className: createCaseInsensitiveExactPattern(className)
     });
 
     return res.status(200).json({
@@ -582,10 +655,11 @@ export const getStudentFilterSummary = async (req, res) => {
       }
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch the student filter summary"
-    });
+    return validationErrorResponse(
+      res,
+      error,
+      "Failed to fetch the student filter summary"
+    );
   }
 };
 
@@ -611,9 +685,17 @@ export const updateStudent = async (req, res) => {
       });
     }
 
-    const editableFields = ["enrollmentNo", "studentName", "department", "className"];
-    const providedFields = editableFields.filter((field) => req.body[field] !== undefined);
-    const emptyFields = providedFields.filter((field) => isMissingRequiredValue(req.body[field]));
+    const body = req.body || {};
+    const editableFields = ["enrollmentNo", "studentName", "department"];
+    const providedFields = editableFields.filter((field) => body[field] !== undefined);
+    const classNameWasProvided = ["className", "class", "selectedClass"].some((field) => {
+      return body[field] !== undefined;
+    });
+    const emptyFields = providedFields.filter((field) => isMissingRequiredValue(body[field]));
+
+    if (classNameWasProvided && isMissingRequiredValue(resolveClassName(body))) {
+      emptyFields.push("className");
+    }
 
     if (emptyFields.length > 0) {
       return res.status(400).json({
@@ -631,19 +713,42 @@ export const updateStudent = async (req, res) => {
     };
     const normalizedData = normalizeStudentData({
       ...currentValues,
-      ...Object.fromEntries(providedFields.map((field) => [field, req.body[field]])),
-      isActive: typeof req.body.isActive === "boolean" ? req.body.isActive : student.isActive
+      ...Object.fromEntries(providedFields.map((field) => [field, body[field]])),
+      className: classNameWasProvided
+        ? resolveClassName(body)
+        : currentValues.className,
+      isActive: typeof body.isActive === "boolean" ? body.isActive : student.isActive
     });
-    const attendanceOptionIsValid = await isAttendanceOptionPairValid(
-      normalizedData.department,
-      normalizedData.className
-    );
+    const currentDepartment = normalizeDepartmentName(student.department);
+    const currentClassName = normalizeClassName(student.className);
+    const optionPairChanged = normalizedData.department !== currentDepartment
+      || normalizedData.className !== currentClassName;
 
-    if (!attendanceOptionIsValid) {
-      return res.status(400).json({
-        success: false,
-        message: INVALID_ATTENDANCE_OPTION_MESSAGE
-      });
+    if (optionPairChanged) {
+      const attendanceOptionStatus = await validateAttendanceOptionPair(
+        normalizedData.department,
+        normalizedData.className
+      );
+
+      if (!attendanceOptionStatus.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
+        });
+      }
+    }
+
+    const duplicateStudent = await AttendanceStudent.exists({
+      _id: {
+        $ne: student._id
+      },
+      department: createCaseInsensitiveExactPattern(normalizedData.department),
+      className: createCaseInsensitiveExactPattern(normalizedData.className),
+      enrollmentNo: createCaseInsensitiveExactPattern(normalizedData.enrollmentNo)
+    });
+
+    if (duplicateStudent) {
+      return duplicateStudentResponse(res);
     }
 
     student.set(normalizedData);
@@ -802,7 +907,12 @@ export const deleteStudentsByClass = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    const { department, className, confirmationText } = req.body || {};
+    const body = req.body || {};
+    const {
+      department,
+      confirmationText
+    } = body;
+    const className = resolveClassName(body);
 
     if (isMissingRequiredValue(department)) {
       return res.status(400).json({
@@ -825,8 +935,8 @@ export const deleteStudentsByClass = async (req, res) => {
       });
     }
 
-    const normalizedDepartment = String(department).trim();
-    const normalizedClassName = String(className).trim().toUpperCase();
+    const normalizedDepartment = normalizeDepartmentName(department);
+    const normalizedClassName = normalizeClassName(className);
     const expectedConfirmation = `DELETE ${normalizedDepartment} ${normalizedClassName}`;
 
     if (confirmationText !== expectedConfirmation) {
@@ -837,8 +947,8 @@ export const deleteStudentsByClass = async (req, res) => {
     }
 
     const filters = {
-      department: normalizedDepartment,
-      className: normalizedClassName
+      department: createCaseInsensitiveExactPattern(normalizedDepartment),
+      className: createCaseInsensitiveExactPattern(normalizedClassName)
     };
     const matchingCount = await AttendanceStudent.countDocuments(filters);
 

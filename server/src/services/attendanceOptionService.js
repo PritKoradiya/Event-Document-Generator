@@ -81,22 +81,54 @@ const isLegacyAttendancePair = async (department, className) => {
   }));
 };
 
-const isAttendanceDepartmentKnown = async (departmentValue) => {
+const getAttendanceDepartmentState = async (departmentValue) => {
   const department = normalizeDepartmentName(departmentValue);
-  const departmentRecord = await AttendanceDepartment.exists({
-    name: department
-  });
-
-  return Boolean(departmentRecord) || isLegacyDepartment(department);
-};
-
-const isAttendanceOptionPairValid = async (departmentValue, classNameValue) => {
-  const department = normalizeDepartmentName(departmentValue);
-  const className = normalizeClassName(classNameValue);
-  const [activeDepartment, activeClass] = await Promise.all([
+  const [departmentRecord, activeDepartment] = await Promise.all([
+    AttendanceDepartment.exists({
+      name: department
+    }),
     AttendanceDepartment.exists({
       name: department,
       isActive: true
+    })
+  ]);
+
+  if (departmentRecord) {
+    return {
+      exists: true,
+      isActive: Boolean(activeDepartment),
+      source: "master"
+    };
+  }
+
+  const legacyDepartment = await isLegacyDepartment(department);
+
+  return {
+    exists: legacyDepartment,
+    isActive: legacyDepartment,
+    source: legacyDepartment ? "legacy" : null
+  };
+};
+
+const getAttendanceOptionPairStatus = async (departmentValue, classNameValue) => {
+  const department = normalizeDepartmentName(departmentValue);
+  const className = normalizeClassName(classNameValue);
+  const [
+    departmentRecord,
+    activeDepartment,
+    classRecord,
+    activeClass
+  ] = await Promise.all([
+    AttendanceDepartment.exists({
+      name: department
+    }),
+    AttendanceDepartment.exists({
+      name: department,
+      isActive: true
+    }),
+    AttendanceClass.exists({
+      department,
+      className
     }),
     AttendanceClass.exists({
       department,
@@ -105,17 +137,83 @@ const isAttendanceOptionPairValid = async (departmentValue, classNameValue) => {
     })
   ]);
 
-  if (activeDepartment && activeClass) {
-    return true;
+  if (departmentRecord && !activeDepartment) {
+    return {
+      isValid: false,
+      reason: "departmentInactive"
+    };
   }
 
-  return isLegacyAttendancePair(department, className);
+  if (classRecord && !activeClass) {
+    return {
+      isValid: false,
+      reason: "classInactive"
+    };
+  }
+
+  if (activeDepartment && activeClass) {
+    return {
+      isValid: true,
+      reason: null
+    };
+  }
+
+  const [legacyDepartment, legacyPair] = await Promise.all([
+    isLegacyDepartment(department),
+    isLegacyAttendancePair(department, className)
+  ]);
+
+  if (!departmentRecord && !legacyDepartment) {
+    return {
+      isValid: false,
+      reason: "department"
+    };
+  }
+
+  if (legacyPair) {
+    return {
+      isValid: true,
+      reason: null
+    };
+  }
+
+  return {
+    isValid: false,
+    reason: "class"
+  };
+};
+
+const isAttendanceOptionPairValid = async (departmentValue, classNameValue) => {
+  const status = await getAttendanceOptionPairStatus(
+    departmentValue,
+    classNameValue
+  );
+
+  return status.isValid;
+};
+
+const getAttendanceOptionErrorMessage = (status) => {
+  if (status.reason === "department") {
+    return "The selected department does not exist.";
+  }
+
+  if (status.reason === "departmentInactive") {
+    return "The selected department is inactive.";
+  }
+
+  if (status.reason === "classInactive") {
+    return "The selected class is inactive.";
+  }
+
+  return "The selected class does not belong to this department.";
 };
 
 export {
   createCaseInsensitiveExactPattern,
+  getAttendanceDepartmentState,
+  getAttendanceOptionErrorMessage,
+  getAttendanceOptionPairStatus,
   getLegacyAttendancePairs,
-  isAttendanceDepartmentKnown,
   isAttendanceOptionPairValid,
   normalizeLegacyPairs
 };

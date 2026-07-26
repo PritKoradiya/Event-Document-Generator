@@ -12,7 +12,7 @@ function AttendanceSheetHeader({
 }) {
   const tableX = metrics ? metrics.tableX : ATTENDANCE_LAYOUT.tableX;
   const tableWidth = metrics ? metrics.tableWidth : ATTENDANCE_LAYOUT.tableWidth;
-  const dateRowY = metrics ? metrics.dateRowY : ATTENDANCE_LAYOUT.dateRowY;
+  const classDateY = metrics ? metrics.classDateY : ATTENDANCE_LAYOUT.classDateY;
 
   const fontFam = ATTENDANCE_TYPOGRAPHY.svgFontFamily;
 
@@ -32,11 +32,9 @@ function AttendanceSheetHeader({
     fontWeight: "bold"
   });
 
-  const dateBaselineY = dateRowY + 5.1;
-
   return (
     <g className="attendance-sheet-header">
-      {/* Centered Black Serif Header Text */}
+      {/* 1. School Name */}
       <text
         x="105"
         y={ATTENDANCE_LAYOUT.schoolY}
@@ -49,6 +47,7 @@ function AttendanceSheetHeader({
         School of Engineering, PPSU
       </text>
 
+      {/* 2. Department Name */}
       <text
         x="105"
         y={ATTENDANCE_LAYOUT.departmentY}
@@ -61,6 +60,7 @@ function AttendanceSheetHeader({
         {formattedDepartment}
       </text>
 
+      {/* 3. Event Heading */}
       <text
         x="105"
         y={ATTENDANCE_LAYOUT.headingY}
@@ -73,6 +73,7 @@ function AttendanceSheetHeader({
         {heading || "Event Heading"}
       </text>
 
+      {/* 4. Document Title */}
       <text
         x="105"
         y={ATTENDANCE_LAYOUT.documentTitleY}
@@ -85,37 +86,29 @@ function AttendanceSheetHeader({
         Attendance Sheet
       </text>
 
+      {/* 5. Class (Left) & Date (Right) Row */}
       <text
-        x="105"
-        y={ATTENDANCE_LAYOUT.classY}
-        textAnchor="middle"
+        x={tableX}
+        y={classDateY}
+        textAnchor="start"
         fontFamily={fontFam}
-        fontSize={ptToSvgUnit(ATTENDANCE_TYPOGRAPHY.className.size)}
-        fontWeight={ATTENDANCE_TYPOGRAPHY.className.weight}
+        fontSize={ptToSvgUnit(ATTENDANCE_TYPOGRAPHY.classDate.size)}
+        fontWeight={ATTENDANCE_TYPOGRAPHY.classDate.weight}
         fill="#000000"
       >
         Class- {className || "—"}
       </text>
 
-      {/* Date Row Box */}
-      <rect
-        x={tableX}
-        y={dateRowY}
-        width={tableWidth}
-        height={8}
-        fill="#ffffff"
-        stroke="#000000"
-        strokeWidth="0.45"
-      />
       <text
-        x={tableX + 3}
-        y={dateBaselineY}
+        x={tableX + tableWidth}
+        y={classDateY}
+        textAnchor="end"
         fontFamily={fontFam}
-        fontSize={ptToSvgUnit(ATTENDANCE_TYPOGRAPHY.dateLabel.size)}
+        fontSize={ptToSvgUnit(ATTENDANCE_TYPOGRAPHY.classDate.size)}
+        fontWeight={ATTENDANCE_TYPOGRAPHY.classDate.weight}
         fill="#000000"
       >
-        <tspan fontWeight="bold">Date : </tspan>
-        <tspan fontWeight="normal">{date || "—"}</tspan>
+        Date : {date || "—"}
       </text>
     </g>
   );

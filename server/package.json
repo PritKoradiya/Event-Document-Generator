@@ -9,6 +9,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed:attendance-options": "node src/scripts/seedAttendanceOptions.js",
+    "test:attendance-flow": "node src/scripts/testAttendanceFlow.js",
     "test": "node --test"
   },
   "dependencies": {

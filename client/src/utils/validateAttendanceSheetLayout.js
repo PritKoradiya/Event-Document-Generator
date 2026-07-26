@@ -1,6 +1,6 @@
 import { ATTENDANCE_PAGE, ATTENDANCE_LAYOUT, ATTENDANCE_TYPOGRAPHY } from "../config/attendanceSheetLayout.js";
 import { resolveAttendancePageMetrics } from "./resolveAttendancePageMetrics.js";
-import { fitSvgAttendanceText } from "./attendanceTextLayout.js";
+import { fitSvgTextAndString } from "./attendanceTextLayout.js";
 
 export const validateAttendanceSheetLayout = (sheetData) => {
   const errors = [];
@@ -20,18 +20,14 @@ export const validateAttendanceSheetLayout = (sheetData) => {
     errors.push(`Table width (${ATTENDANCE_LAYOUT.tableWidth}mm) must be 186mm.`);
   }
 
-  if (ATTENDANCE_LAYOUT.columns.sign > 18) {
-    errors.push(`Sign column width (${ATTENDANCE_LAYOUT.columns.sign}mm) must not exceed 18mm.`);
-  }
-
   if (ATTENDANCE_LAYOUT.tableX + ATTENDANCE_LAYOUT.tableWidth > ATTENDANCE_PAGE.width) {
     errors.push(`Table extends beyond A4 page width (${ATTENDANCE_PAGE.width}mm).`);
   }
 
   // Check 39-row full page metrics
   const fullPageMetrics = resolveAttendancePageMetrics({ rowsOnPage: 39, isLastPage: true });
-  if (fullPageMetrics.rowHeight < 5.35 || fullPageMetrics.rowHeight > 10.5) {
-    errors.push(`Row height (${fullPageMetrics.rowHeight}mm) out of valid range [5.35, 10.5].`);
+  if (fullPageMetrics.rowHeight < 5.0 || fullPageMetrics.rowHeight > 10.5) {
+    errors.push(`Row height (${fullPageMetrics.rowHeight}mm) out of valid range [5.0, 10.5].`);
   }
 
   if (fullPageMetrics.coordinatorY > ATTENDANCE_PAGE.height - 5) {
@@ -86,8 +82,8 @@ export const validateAttendanceSheetLayout = (sheetData) => {
         isLastPage
       });
 
-      if (metrics.rowHeight < 5.35 || metrics.rowHeight > 10.5) {
-        errors.push(`Page ${p + 1} row height (${metrics.rowHeight}mm) out of valid range [5.35, 10.5].`);
+      if (metrics.rowHeight < 5.0 || metrics.rowHeight > 10.5) {
+        errors.push(`Page ${p + 1} row height (${metrics.rowHeight}mm) out of valid range [5.0, 10.5].`);
       }
 
       if (isLastPage && metrics.coordinatorY > ATTENDANCE_PAGE.height - 5) {
@@ -106,32 +102,17 @@ export const validateAttendanceSheetLayout = (sheetData) => {
         errors.push(`Student at row ${idx + 1} is missing Student Name.`);
       }
 
-      // Check name fitting at minimum size (7.4pt)
-      const minNamePt = fitSvgAttendanceText({
+      // Check name fitting
+      const nameFit = fitSvgTextAndString({
         text: name,
-        preferredSize: ATTENDANCE_TYPOGRAPHY.studentName.size,
-        minimumSize: 7.4,
-        maxWidth: ATTENDANCE_LAYOUT.columns.name - 3,
+        preferredSize: ATTENDANCE_TYPOGRAPHY.student.size,
+        minimumSize: ATTENDANCE_TYPOGRAPHY.student.minimumSize,
+        maxWidth: ATTENDANCE_LAYOUT.columns.name - 5,
         fontFamily: ATTENDANCE_TYPOGRAPHY.svgFontFamily
       });
 
-      if (minNamePt <= 7.4) {
-        if (name.length > 75) {
-          errors.push(`Student name is dangerously long for single line: [${name}].`);
-        }
-      }
-
-      // Check enrollment fitting at minimum size (7.2pt)
-      const minEnrollPt = fitSvgAttendanceText({
-        text: enroll,
-        preferredSize: ATTENDANCE_TYPOGRAPHY.enrollment.size,
-        minimumSize: 7.2,
-        maxWidth: ATTENDANCE_LAYOUT.columns.enrollment - 2,
-        fontFamily: ATTENDANCE_TYPOGRAPHY.svgFontFamily
-      });
-
-      if (minEnrollPt < 7.2) {
-        errors.push(`Enrollment number is too long for single line: [${enroll}].`);
+      if (nameFit.fontSize <= ATTENDANCE_TYPOGRAPHY.student.minimumSize && name.length > 85) {
+        errors.push(`Student name is dangerously long for single line: [${name}].`);
       }
 
       if (student.sign !== undefined && student.sign !== null && student.sign !== "") {

@@ -4,6 +4,12 @@ const isRequiredForGeneratedSheet = function () {
   return this.status !== "Draft";
 };
 
+const isRequiredWhenLegacyFieldIsMissing = (legacyField) => {
+  return function () {
+    return this.status !== "Draft" && !this[legacyField];
+  };
+};
+
 const attendanceSheetStudentSchema = new mongoose.Schema(
   {
     serialNo: Number,
@@ -33,11 +39,12 @@ const attendanceSheetSchema = new mongoose.Schema(
     department: {
       type: String,
       required: isRequiredForGeneratedSheet,
-      trim: true
+      trim: true,
+      uppercase: true
     },
-    heading: {
+    eventHeading: {
       type: String,
-      required: isRequiredForGeneratedSheet,
+      required: isRequiredWhenLegacyFieldIsMissing("heading"),
       trim: true
     },
     className: {
@@ -46,30 +53,24 @@ const attendanceSheetSchema = new mongoose.Schema(
       trim: true,
       uppercase: true
     },
-    attendanceDate: {
+    eventDate: {
       type: String,
-      required: isRequiredForGeneratedSheet,
+      required: isRequiredWhenLegacyFieldIsMissing("attendanceDate"),
       trim: true
     },
-    eventCoordinatorName: {
+    coordinatorName: {
       type: String,
-      required: isRequiredForGeneratedSheet,
+      required: isRequiredWhenLegacyFieldIsMissing("eventCoordinatorName"),
       trim: true
     },
     documentTitle: {
       type: String,
       default: "Attendance Sheet"
     },
-    students: {
+    studentsSnapshot: {
       type: [attendanceSheetStudentSchema],
-      default: [],
+      default: undefined,
       validate: [
-        {
-          validator: function (students) {
-            return this.status === "Draft" || students.length > 0;
-          },
-          message: "A generated attendance sheet must contain students."
-        },
         {
           validator: (students) => students.every((student, index) => {
             return student.serialNo === index + 1;
@@ -83,6 +84,23 @@ const attendanceSheetSchema = new mongoose.Schema(
           message: "Student signatures must remain blank."
         }
       ]
+    },
+    // Legacy fields remain readable so old saved records are never migrated or altered implicitly.
+    heading: {
+      type: String,
+      trim: true
+    },
+    attendanceDate: {
+      type: String,
+      trim: true
+    },
+    eventCoordinatorName: {
+      type: String,
+      trim: true
+    },
+    students: {
+      type: [attendanceSheetStudentSchema],
+      default: undefined
     },
     totalStudents: {
       type: Number,
@@ -108,6 +126,19 @@ const attendanceSheetSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+attendanceSheetSchema.pre("validate", function () {
+  const snapshot = this.studentsSnapshot?.length
+    ? this.studentsSnapshot
+    : this.students;
+
+  if (this.status !== "Draft" && (!snapshot || snapshot.length === 0)) {
+    this.invalidate(
+      "studentsSnapshot",
+      "A generated attendance sheet must contain students."
+    );
+  }
+});
 
 const AttendanceSheet = mongoose.model("AttendanceSheet", attendanceSheetSchema);
 

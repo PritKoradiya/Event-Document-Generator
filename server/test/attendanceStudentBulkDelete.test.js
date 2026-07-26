@@ -7,6 +7,8 @@ import {
   deleteStudentsByClass,
   getStudentFilterSummary
 } from "../src/controllers/attendanceStudentController.js";
+import AttendanceClass from "../src/models/AttendanceClass.js";
+import AttendanceDepartment from "../src/models/AttendanceDepartment.js";
 import AttendanceSheet from "../src/models/AttendanceSheet.js";
 import AttendanceStudent from "../src/models/AttendanceStudent.js";
 
@@ -237,10 +239,8 @@ test("confirmed class deletion removes only the exact roster and preserves sheet
       className: "CE4",
       deletedCount: 45
     });
-    assert.deepEqual(receivedCountFilters, {
-      department: "CE/IT",
-      className: "CE4"
-    });
+    assert.equal(receivedCountFilters.department.source, "^CE\\/IT$");
+    assert.equal(receivedCountFilters.className.source, "^CE4$");
     assert.deepEqual(receivedDeleteFilters, receivedCountFilters);
     assert.equal(sheetUpdateCalled, false);
     assert.deepEqual(storedSnapshot, snapshotBeforeDeletion);
@@ -302,9 +302,13 @@ test("class deletion rejects incorrect confirmation and department-only requests
 test("filter summary requires both filters and returns the exact roster count", async () => {
   const originalReadyState = mongoose.connection.readyState;
   const originalCountDocuments = AttendanceStudent.countDocuments;
+  const originalClassExists = AttendanceClass.exists;
+  const originalDepartmentExists = AttendanceDepartment.exists;
   let receivedFilters;
 
   mongoose.connection.readyState = 1;
+  AttendanceClass.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
+  AttendanceDepartment.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
   AttendanceStudent.countDocuments = async (filters) => {
     receivedFilters = filters;
     return 45;
@@ -329,10 +333,8 @@ test("filter summary requires both filters and returns the exact roster count", 
     }, summaryResponse);
 
     assert.equal(summaryResponse.statusCode, 200);
-    assert.deepEqual(receivedFilters, {
-      department: "CE/IT",
-      className: "CE4"
-    });
+    assert.equal(receivedFilters.department.source, "^CE\\/IT$");
+    assert.equal(receivedFilters.className.source, "^CE4$");
     assert.deepEqual(summaryResponse.body.data, {
       department: "CE/IT",
       className: "CE4",
@@ -340,6 +342,8 @@ test("filter summary requires both filters and returns the exact roster count", 
     });
   } finally {
     AttendanceStudent.countDocuments = originalCountDocuments;
+    AttendanceClass.exists = originalClassExists;
+    AttendanceDepartment.exists = originalDepartmentExists;
     mongoose.connection.readyState = originalReadyState;
   }
 });

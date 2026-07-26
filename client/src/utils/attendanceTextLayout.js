@@ -26,6 +26,41 @@ export const fitPdfTextToWidth = ({
   return currentSize;
 };
 
+export const fitPdfTextAndString = ({
+  pdf,
+  text,
+  preferredSize = 10.5,
+  minimumSize = 8.5,
+  maxWidth,
+  fontStyle = "normal"
+}) => {
+  if (!pdf || !text) return { fontSize: preferredSize, text: text || "" };
+
+  let currentSize = preferredSize;
+  pdf.setFont("times", fontStyle);
+  pdf.setFontSize(currentSize);
+
+  let textWidth = pdf.getTextWidth(text);
+
+  while (textWidth > maxWidth && currentSize > minimumSize + 0.01) {
+    currentSize = Math.max(minimumSize, Number((currentSize - 0.2).toFixed(2)));
+    pdf.setFontSize(currentSize);
+    textWidth = pdf.getTextWidth(text);
+  }
+
+  let fittedText = text;
+  if (textWidth > maxWidth) {
+    pdf.setFontSize(minimumSize);
+    fittedText = text;
+    while (fittedText.length > 3 && pdf.getTextWidth(fittedText + "...") > maxWidth) {
+      fittedText = fittedText.slice(0, -1);
+    }
+    fittedText = fittedText + "...";
+  }
+
+  return { fontSize: currentSize, text: fittedText };
+};
+
 // Canvas context singleton for SVG text measurement
 let measurementCanvasCtx = null;
 const getMeasurementCanvasContext = () => {
@@ -54,12 +89,11 @@ export const fitSvgAttendanceText = ({
 
   let currentSize = preferredSize;
 
-  // 1 pt = (25.4 / 72) mm ≈ 0.352778 mm. In SVG with 1 unit = 1mm, font-size in mm is currentSize * (25.4/72)
   const getMeasuredWidthMm = (size) => {
-    const pxSize = (size * 96) / 72; // Convert pt to px for canvas font setting
+    const pxSize = (size * 96) / 72;
     ctx.font = `${fontWeight} ${pxSize}px ${fontFamily}`;
     const pxWidth = ctx.measureText(text).width;
-    return (pxWidth * 25.4) / 96; // Convert canvas px to mm
+    return (pxWidth * 25.4) / 96;
   };
 
   let textWidthMm = getMeasuredWidthMm(currentSize);
@@ -72,7 +106,50 @@ export const fitSvgAttendanceText = ({
   return currentSize;
 };
 
+export const fitSvgTextAndString = ({
+  text,
+  preferredSize = 10.5,
+  minimumSize = 8.5,
+  maxWidth,
+  fontFamily = "'Times New Roman', Times, serif",
+  fontWeight = "normal"
+}) => {
+  if (!text) return { fontSize: preferredSize, text: "" };
+  const ctx = getMeasurementCanvasContext();
+  if (!ctx) return { fontSize: preferredSize, text };
+
+  let currentSize = preferredSize;
+
+  const getMeasuredWidthMm = (str, size) => {
+    const pxSize = (size * 96) / 72;
+    ctx.font = `${fontWeight} ${pxSize}px ${fontFamily}`;
+    const pxWidth = ctx.measureText(str).width;
+    return (pxWidth * 25.4) / 96;
+  };
+
+  let textWidthMm = getMeasuredWidthMm(text, currentSize);
+
+  while (textWidthMm > maxWidth && currentSize > minimumSize + 0.01) {
+    currentSize = Math.max(minimumSize, Number((currentSize - 0.2).toFixed(2)));
+    textWidthMm = getMeasuredWidthMm(text, currentSize);
+  }
+
+  let fittedText = text;
+  if (textWidthMm > maxWidth) {
+    currentSize = minimumSize;
+    fittedText = text;
+    while (fittedText.length > 3 && getMeasuredWidthMm(fittedText + "...", minimumSize) > maxWidth) {
+      fittedText = fittedText.slice(0, -1);
+    }
+    fittedText = fittedText + "...";
+  }
+
+  return { fontSize: currentSize, text: fittedText };
+};
+
 export default {
   fitPdfTextToWidth,
-  fitSvgAttendanceText
+  fitPdfTextAndString,
+  fitSvgAttendanceText,
+  fitSvgTextAndString
 };

@@ -3,22 +3,23 @@ import AttendanceSheet from "../models/AttendanceSheet.js";
 import AttendanceStudent from "../models/AttendanceStudent.js";
 import {
   createCaseInsensitiveExactPattern,
-  isAttendanceOptionPairValid
+  getAttendanceOptionErrorMessage,
+  getAttendanceOptionPairStatus
 } from "../services/attendanceOptionService.js";
 import {
   normalizeClassName,
-  normalizeDepartmentName
+  normalizeDepartmentName,
+  resolveClassName
 } from "../utils/attendanceOptionUtils.js";
 
 const ROWS_PER_PAGE = 39;
 const REQUIRED_FIELDS = [
   "department",
-  "heading",
   "className",
-  "attendanceDate",
-  "eventCoordinatorName"
+  "eventHeading",
+  "eventDate",
+  "coordinatorName"
 ];
-const EDITABLE_FIELDS = [...REQUIRED_FIELDS, "status"];
 
 const isDatabaseConnected = () => mongoose.connection.readyState === 1;
 
@@ -36,10 +37,6 @@ const isMissingRequiredValue = (value) => {
 };
 
 const normalizeSheetField = (field, value) => {
-  if (typeof value !== "string") {
-    return value;
-  }
-
   if (field === "department") {
     return normalizeDepartmentName(value);
   }
@@ -48,7 +45,94 @@ const normalizeSheetField = (field, value) => {
     return normalizeClassName(value);
   }
 
-  return value.trim();
+  return String(value ?? "").trim();
+};
+
+const getSheetRequestData = (body = {}) => {
+  const sourceValues = {
+    department: body.department,
+    className: resolveClassName(body),
+    eventHeading: body.eventHeading ?? body.heading,
+    eventDate: body.eventDate ?? body.attendanceDate,
+    coordinatorName: body.coordinatorName ?? body.eventCoordinatorName
+  };
+
+  return Object.fromEntries(
+    Object.entries(sourceValues)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([field, value]) => [field, normalizeSheetField(field, value)])
+  );
+};
+
+const getStoredSnapshot = (attendanceSheet) => {
+  if (Array.isArray(attendanceSheet.studentsSnapshot)) {
+    return attendanceSheet.studentsSnapshot;
+  }
+
+  return Array.isArray(attendanceSheet.students)
+    ? attendanceSheet.students
+    : [];
+};
+
+const serializeAttendanceSheet = (attendanceSheet) => {
+  const plainSheet = typeof attendanceSheet?.toObject === "function"
+    ? attendanceSheet.toObject()
+    : { ...attendanceSheet };
+  const serializedSheet = {
+    ...plainSheet,
+    eventHeading: plainSheet.eventHeading ?? plainSheet.heading ?? "",
+    eventDate: plainSheet.eventDate ?? plainSheet.attendanceDate ?? "",
+    coordinatorName: plainSheet.coordinatorName
+      ?? plainSheet.eventCoordinatorName
+      ?? "",
+    studentsSnapshot: Array.isArray(plainSheet.studentsSnapshot)
+      ? plainSheet.studentsSnapshot
+      : (plainSheet.students || [])
+  };
+
+  delete serializedSheet.heading;
+  delete serializedSheet.attendanceDate;
+  delete serializedSheet.eventCoordinatorName;
+  delete serializedSheet.students;
+
+  return serializedSheet;
+};
+
+const LEGACY_SHEET_FIELDS = {
+  eventHeading: "heading",
+  eventDate: "attendanceDate",
+  coordinatorName: "eventCoordinatorName"
+};
+
+const usesLegacySheetStorage = (attendanceSheet) => {
+  return attendanceSheet.eventHeading === undefined
+    && (
+      attendanceSheet.heading !== undefined
+      || attendanceSheet.attendanceDate !== undefined
+      || attendanceSheet.eventCoordinatorName !== undefined
+      || attendanceSheet.students !== undefined
+    );
+};
+
+const getAttendanceSheetValue = (attendanceSheet, field) => {
+  const legacyField = LEGACY_SHEET_FIELDS[field];
+
+  if (attendanceSheet[field] !== undefined && attendanceSheet[field] !== null) {
+    return attendanceSheet[field];
+  }
+
+  return legacyField ? attendanceSheet[legacyField] : undefined;
+};
+
+const setAttendanceSheetValue = (attendanceSheet, field, value) => {
+  const legacyField = LEGACY_SHEET_FIELDS[field];
+
+  if (legacyField && usesLegacySheetStorage(attendanceSheet)) {
+    attendanceSheet[legacyField] = value;
+    return;
+  }
+
+  attendanceSheet[field] = value;
 };
 
 const createAttendanceSheetIdFromNumber = (year, number) => {
@@ -155,7 +239,10 @@ export const createAttendanceSheet = async (req, res) => {
     }
 
     const body = req.body || {};
-    const missingFields = REQUIRED_FIELDS.filter((field) => isMissingRequiredValue(body[field]));
+    const sheetData = getSheetRequestData(body);
+    const missingFields = REQUIRED_FIELDS.filter((field) => {
+      return isMissingRequiredValue(sheetData[field]);
+    });
 
     if (missingFields.length > 0) {
       return res.status(400).json({
@@ -164,34 +251,30 @@ export const createAttendanceSheet = async (req, res) => {
       });
     }
 
-    const sheetData = Object.fromEntries(REQUIRED_FIELDS.map((field) => [
-      field,
-      normalizeSheetField(field, body[field])
-    ]));
+    const attendanceOptionStatus = await getAttendanceOptionPairStatus(
+      sheetData.department,
+      sheetData.className
+    );
+
+    if (!attendanceOptionStatus.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
+      });
+    }
+
     const students = await getStudentSnapshot(sheetData.department, sheetData.className);
 
     if (students.length === 0) {
-      const attendanceOptionIsValid = await isAttendanceOptionPairValid(
-        sheetData.department,
-        sheetData.className
-      );
-
-      if (!attendanceOptionIsValid) {
-        return res.status(400).json({
-          success: false,
-          message: "The selected department or class does not exist. Please create it first."
-        });
-      }
-
       return res.status(404).json({
         success: false,
-        message: "No students found for the selected department and class."
+        message: `No students were found for ${sheetData.department} - ${sheetData.className}.`
       });
     }
 
     const attendanceSheet = await createAttendanceSheetRecord({
       ...sheetData,
-      students,
+      studentsSnapshot: students,
       ...getPaginationData(students),
       status: "Generated"
     });
@@ -199,7 +282,7 @@ export const createAttendanceSheet = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Attendance sheet generated successfully",
-      data: attendanceSheet
+      data: serializeAttendanceSheet(attendanceSheet)
     });
   } catch (error) {
     return controllerErrorResponse(res, error, "Failed to generate attendance sheet");
@@ -212,13 +295,21 @@ export const saveDraftAttendanceSheet = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    const draftData = {};
+    const draftData = getSheetRequestData(req.body || {});
 
-    REQUIRED_FIELDS.forEach((field) => {
-      if (req.body[field] !== undefined && req.body[field] !== null) {
-        draftData[field] = normalizeSheetField(field, req.body[field]);
+    if (draftData.department && draftData.className) {
+      const attendanceOptionStatus = await getAttendanceOptionPairStatus(
+        draftData.department,
+        draftData.className
+      );
+
+      if (!attendanceOptionStatus.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
+        });
       }
-    });
+    }
 
     const attendanceSheet = await createAttendanceSheetRecord({
       ...draftData,
@@ -229,7 +320,7 @@ export const saveDraftAttendanceSheet = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Attendance sheet draft saved successfully",
-      data: attendanceSheet
+      data: serializeAttendanceSheet(attendanceSheet)
     });
   } catch (error) {
     return controllerErrorResponse(res, error, "Failed to save attendance sheet draft");
@@ -242,21 +333,59 @@ export const getAttendanceSheets = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    const filters = {};
-    const filterFields = ["department", "className", "attendanceDate", "status"];
+    const query = req.query || {};
+    const conditions = [];
 
-    filterFields.forEach((field) => {
-      if (typeof req.query[field] === "string" && req.query[field].trim()) {
-        filters[field] = normalizeSheetField(field, req.query[field]);
+    if (!isMissingRequiredValue(query.department)) {
+      const department = normalizeDepartmentName(query.department);
+      conditions.push({
+        department: createCaseInsensitiveExactPattern(department)
+      });
+    }
+
+    const requestedClassName = resolveClassName(query);
+
+    if (!isMissingRequiredValue(requestedClassName)) {
+      const className = normalizeClassName(requestedClassName);
+      conditions.push({
+        className: createCaseInsensitiveExactPattern(className)
+      });
+    }
+
+    const requestedEventDate = query.eventDate ?? query.attendanceDate;
+
+    if (!isMissingRequiredValue(requestedEventDate)) {
+      const eventDate = normalizeSheetField("eventDate", requestedEventDate);
+      conditions.push({
+        $or: [
+          {
+            eventDate
+          },
+          {
+            attendanceDate: eventDate
+          }
+        ]
+      });
+    }
+
+    if (!isMissingRequiredValue(query.status)) {
+      conditions.push({
+        status: String(query.status).trim()
+      });
+    }
+
+    const filters = conditions.length > 0
+      ? {
+        $and: conditions
       }
-    });
-
+      : {};
     const attendanceSheets = await AttendanceSheet.find(filters).sort({ createdAt: -1 });
+    const serializedSheets = attendanceSheets.map(serializeAttendanceSheet);
 
     return res.status(200).json({
       success: true,
-      count: attendanceSheets.length,
-      data: attendanceSheets
+      count: serializedSheets.length,
+      data: serializedSheets
     });
   } catch (error) {
     return res.status(500).json({
@@ -291,7 +420,7 @@ export const getAttendanceSheetById = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Attendance sheet fetched successfully",
-      data: attendanceSheet
+      data: serializeAttendanceSheet(attendanceSheet)
     });
   } catch (error) {
     return res.status(500).json({
@@ -323,15 +452,50 @@ export const updateAttendanceSheet = async (req, res) => {
       });
     }
 
-    EDITABLE_FIELDS.forEach((field) => {
-      if (req.body[field] !== undefined && req.body[field] !== null) {
-        attendanceSheet[field] = normalizeSheetField(field, req.body[field]);
+    const body = req.body || {};
+    const requestedData = getSheetRequestData(body);
+    const currentDepartment = normalizeDepartmentName(attendanceSheet.department);
+    const currentClassName = normalizeClassName(attendanceSheet.className);
+    const nextDepartment = requestedData.department ?? currentDepartment;
+    const nextClassName = requestedData.className ?? currentClassName;
+    const optionPairChanged = nextDepartment !== currentDepartment
+      || nextClassName !== currentClassName;
+
+    if (attendanceSheet.status === "Generated" && optionPairChanged) {
+      return res.status(400).json({
+        success: false,
+        message: "Regenerate the attendance sheet to change its department or class."
+      });
+    }
+
+    if (optionPairChanged || body.status === "Generated") {
+      const attendanceOptionStatus = await getAttendanceOptionPairStatus(
+        nextDepartment,
+        nextClassName
+      );
+
+      if (!attendanceOptionStatus.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
+        });
       }
+    }
+
+    Object.entries(requestedData).forEach(([field, value]) => {
+      setAttendanceSheetValue(attendanceSheet, field, value);
     });
+
+    if (body.status !== undefined) {
+      attendanceSheet.status = body.status;
+    }
 
     if (attendanceSheet.status === "Generated") {
       const missingFields = REQUIRED_FIELDS.filter((field) => {
-        return isMissingRequiredValue(attendanceSheet[field]);
+        const value = ["eventHeading", "eventDate", "coordinatorName"].includes(field)
+          ? getAttendanceSheetValue(attendanceSheet, field)
+          : attendanceSheet[field];
+        return isMissingRequiredValue(value);
       });
 
       if (missingFields.length > 0) {
@@ -342,7 +506,10 @@ export const updateAttendanceSheet = async (req, res) => {
       }
     }
 
-    if (attendanceSheet.status === "Generated" && attendanceSheet.students.length === 0) {
+    if (
+      attendanceSheet.status === "Generated"
+      && getStoredSnapshot(attendanceSheet).length === 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "A generated attendance sheet must contain students."
@@ -354,7 +521,7 @@ export const updateAttendanceSheet = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Attendance sheet updated successfully",
-      data: attendanceSheet
+      data: serializeAttendanceSheet(attendanceSheet)
     });
   } catch (error) {
     return controllerErrorResponse(res, error, "Failed to update attendance sheet");
@@ -393,38 +560,42 @@ export const regenerateAttendanceSheet = async (req, res) => {
       });
     }
 
+    const attendanceOptionStatus = await getAttendanceOptionPairStatus(
+      attendanceSheet.department,
+      attendanceSheet.className
+    );
+
+    if (!attendanceOptionStatus.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: getAttendanceOptionErrorMessage(attendanceOptionStatus)
+      });
+    }
+
     const students = await getStudentSnapshot(
       attendanceSheet.department,
       attendanceSheet.className
     );
 
     if (attendanceSheet.status === "Generated" && students.length === 0) {
-      const attendanceOptionIsValid = await isAttendanceOptionPairValid(
-        attendanceSheet.department,
-        attendanceSheet.className
-      );
-
-      if (!attendanceOptionIsValid) {
-        return res.status(400).json({
-          success: false,
-          message: "The selected department or class does not exist. Please create it first."
-        });
-      }
-
       return res.status(404).json({
         success: false,
-        message: "No students found for the selected department and class."
+        message: `No students were found for ${attendanceSheet.department} - ${attendanceSheet.className}.`
       });
     }
 
-    attendanceSheet.students = students;
+    if (usesLegacySheetStorage(attendanceSheet)) {
+      attendanceSheet.students = students;
+    } else {
+      attendanceSheet.studentsSnapshot = students;
+    }
     Object.assign(attendanceSheet, getPaginationData(students));
     await attendanceSheet.save();
 
     return res.status(200).json({
       success: true,
       message: "Attendance sheet regenerated successfully",
-      data: attendanceSheet
+      data: serializeAttendanceSheet(attendanceSheet)
     });
   } catch (error) {
     return controllerErrorResponse(res, error, "Failed to regenerate attendance sheet");
@@ -453,24 +624,24 @@ export const duplicateAttendanceSheet = async (req, res) => {
       });
     }
 
-    const students = copyStudentSnapshot(sourceSheet.students);
+    const studentsSnapshot = copyStudentSnapshot(getStoredSnapshot(sourceSheet));
     const duplicatedSheet = await createAttendanceSheetRecord({
       schoolName: sourceSheet.schoolName,
       department: sourceSheet.department,
-      heading: sourceSheet.heading,
       className: sourceSheet.className,
-      attendanceDate: sourceSheet.attendanceDate,
-      eventCoordinatorName: sourceSheet.eventCoordinatorName,
+      eventHeading: getAttendanceSheetValue(sourceSheet, "eventHeading"),
+      eventDate: getAttendanceSheetValue(sourceSheet, "eventDate"),
+      coordinatorName: getAttendanceSheetValue(sourceSheet, "coordinatorName"),
       documentTitle: sourceSheet.documentTitle,
-      students,
-      ...getPaginationData(students),
+      studentsSnapshot,
+      ...getPaginationData(studentsSnapshot),
       status: "Draft"
     });
 
     return res.status(201).json({
       success: true,
       message: "Attendance sheet duplicated as draft successfully",
-      data: duplicatedSheet
+      data: serializeAttendanceSheet(duplicatedSheet)
     });
   } catch (error) {
     return controllerErrorResponse(res, error, "Failed to duplicate attendance sheet");
@@ -502,7 +673,7 @@ export const deleteAttendanceSheet = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Attendance sheet deleted successfully",
-      data: attendanceSheet
+      data: serializeAttendanceSheet(attendanceSheet)
     });
   } catch (error) {
     return res.status(500).json({

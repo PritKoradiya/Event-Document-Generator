@@ -38,8 +38,15 @@ const createResponse = () => ({
   }
 });
 
+const matchesValue = (expectedValue, actualValue) => {
+  return expectedValue instanceof RegExp
+    ? expectedValue.test(actualValue)
+    : expectedValue === actualValue;
+};
+
 test("attendance option normalization preserves valid characters and rejects empty values", () => {
   assert.equal(normalizeDepartmentName("  ce/it   & (ict)  "), "CE/IT & (ICT)");
+  assert.equal(normalizeDepartmentName(" - CSE "), "CSE");
   assert.equal(normalizeClassName(" ece - 1 "), "ECE - 1");
   assert.equal(
     normalizeDisplayName("  Computer   Science and Engineering "),
@@ -47,6 +54,9 @@ test("attendance option normalization preserves valid characters and rejects emp
   );
   assert.throws(() => normalizeDepartmentName("   "), /required/i);
   assert.throws(() => normalizeClassName("x".repeat(101)), /100 characters/i);
+  assert.throws(() => normalizeClassName("+ Add New Class"), /reserved/i);
+  assert.throws(() => normalizeClassName("ADD NEW CLASS"), /reserved/i);
+  assert.throws(() => normalizeDepartmentName("ALL DEPARTMENTS"), /reserved/i);
 
   const classIndexes = AttendanceClass.schema.indexes();
   assert.ok(classIndexes.some(([fields, options]) => {
@@ -69,7 +79,9 @@ test("department and class creation normalize values and prevent scoped duplicat
 
   mongoose.connection.readyState = 1;
   AttendanceDepartment.findOne = async ({ name }) => {
-    return departments.find((department) => department.name === name) || null;
+    return departments.find((department) => {
+      return matchesValue(name, department.name);
+    }) || null;
   };
   AttendanceDepartment.create = async (data) => {
     const department = {
@@ -87,8 +99,8 @@ test("department and class creation normalize values and prevent scoped duplicat
   };
   AttendanceClass.findOne = async ({ department, className }) => {
     return classes.find((attendanceClass) => {
-      return attendanceClass.department === department
-        && attendanceClass.className === className;
+      return matchesValue(department, attendanceClass.department)
+        && matchesValue(className, attendanceClass.className);
     }) || null;
   };
   AttendanceClass.create = async (data) => {
@@ -139,7 +151,7 @@ test("department and class creation normalize values and prevent scoped duplicat
     await createClass({
       body: {
         department: "ece",
-        className: "ece1",
+        selectedClass: "ece1",
         displayName: "ECE 1"
       }
     }, eceClassResponse);
@@ -189,14 +201,15 @@ test("active master options support student creation and CSV import", async () =
 
   mongoose.connection.readyState = 1;
   AttendanceDepartment.exists = async (filters) => {
-    return filters.name === "ECE" && filters.isActive === true
+    return filters.name === "ECE"
+      && (filters.isActive === undefined || filters.isActive === true)
       ? { _id: new mongoose.Types.ObjectId() }
       : null;
   };
   AttendanceClass.exists = async (filters) => {
     return filters.department === "ECE"
       && filters.className === "ECE1"
-      && filters.isActive === true
+      && (filters.isActive === undefined || filters.isActive === true)
       ? { _id: new mongoose.Types.ObjectId() }
       : null;
   };
@@ -240,7 +253,7 @@ test("active master options support student creation and CSV import", async () =
         enrollmentNo: "24SE02EC001",
         studentName: "ECE STUDENT",
         department: "ece",
-        className: "ece1"
+        selectedClass: "ece1"
       }
     }, createResponseResult);
 
@@ -252,7 +265,7 @@ test("active master options support student creation and CSV import", async () =
     await importStudentsFromCsv({
       body: {
         department: "ECE",
-        className: "ECE1"
+        class: "ECE1"
       },
       file: {
         buffer: Buffer.from(
@@ -281,7 +294,7 @@ test("active master options support student creation and CSV import", async () =
     assert.equal(unknownOptionResponse.statusCode, 400);
     assert.equal(
       unknownOptionResponse.body.message,
-      "The selected department or class does not exist. Please create it first."
+      "The selected department does not exist."
     );
   } finally {
     AttendanceDepartment.exists = originalDepartmentExists;
@@ -297,8 +310,11 @@ test("active master options support student creation and CSV import", async () =
 test("attendance sheet generation accepts ECE and ECE1 without changing its snapshot format", async () => {
   const originalReadyState = mongoose.connection.readyState;
   const originalStudentFind = AttendanceStudent.find;
+  const originalDepartmentExists = AttendanceDepartment.exists;
+  const originalClassExists = AttendanceClass.exists;
   const originalSheetFindOne = AttendanceSheet.findOne;
   const originalSheetCreate = AttendanceSheet.create;
+  let createdSheetData;
   const students = [
     {
       enrollmentNo: "24SE02EC001",
@@ -307,6 +323,8 @@ test("attendance sheet generation accepts ECE and ECE1 without changing its snap
   ];
 
   mongoose.connection.readyState = 1;
+  AttendanceDepartment.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
+  AttendanceClass.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
   AttendanceStudent.find = () => ({
     sort: async () => students
   });
@@ -315,7 +333,9 @@ test("attendance sheet generation accepts ECE and ECE1 without changing its snap
   });
   AttendanceSheet.create = async (data) => ({
     _id: new mongoose.Types.ObjectId(),
-    ...data
+    ...(
+      createdSheetData = data
+    )
   });
 
   try {
@@ -323,7 +343,7 @@ test("attendance sheet generation accepts ECE and ECE1 without changing its snap
     await createAttendanceSheet({
       body: {
         department: "ece",
-        className: "ece1",
+        selectedClass: "ece1",
         heading: "ECE EVENT",
         attendanceDate: "2026-07-26",
         eventCoordinatorName: "COORDINATOR"
@@ -333,7 +353,14 @@ test("attendance sheet generation accepts ECE and ECE1 without changing its snap
     assert.equal(response.statusCode, 201);
     assert.equal(response.body.data.department, "ECE");
     assert.equal(response.body.data.className, "ECE1");
-    assert.deepEqual(response.body.data.students, [
+    assert.equal(createdSheetData.eventHeading, "ECE EVENT");
+    assert.equal(createdSheetData.eventDate, "2026-07-26");
+    assert.equal(createdSheetData.coordinatorName, "COORDINATOR");
+    assert.equal("heading" in createdSheetData, false);
+    assert.equal("attendanceDate" in createdSheetData, false);
+    assert.equal("eventCoordinatorName" in createdSheetData, false);
+    assert.equal("students" in createdSheetData, false);
+    assert.deepEqual(response.body.data.studentsSnapshot, [
       {
         serialNo: 1,
         enrollmentNo: "24SE02EC001",
@@ -343,6 +370,8 @@ test("attendance sheet generation accepts ECE and ECE1 without changing its snap
     ]);
   } finally {
     AttendanceStudent.find = originalStudentFind;
+    AttendanceDepartment.exists = originalDepartmentExists;
+    AttendanceClass.exists = originalClassExists;
     AttendanceSheet.findOne = originalSheetFindOne;
     AttendanceSheet.create = originalSheetCreate;
     mongoose.connection.readyState = originalReadyState;
@@ -481,6 +510,9 @@ test("options response merges legacy student pairs without duplicates and sorts 
       }),
       ["CE4"]
     );
+    assert.equal(response.body.data.departments[1].isActive, true);
+    assert.equal(response.body.data.departments[1].classes[0].department, "CE/IT");
+    assert.equal(response.body.data.departments[1].classes[0].isActive, true);
   } finally {
     AttendanceDepartment.find = originalDepartmentFind;
     AttendanceClass.find = originalClassFind;
@@ -505,14 +537,23 @@ test("sync creates missing CE/IT, CSE, and AIML master records once", async () =
     { _id: { department: "aiml", className: "aiml1" } }
   ];
   AttendanceDepartment.updateOne = async ({ name }) => {
-    const wasInserted = !insertedDepartments.has(name);
-    insertedDepartments.add(name);
+    const normalizedName = ["CE/IT", "CSE", "AIML"].find((value) => {
+      return matchesValue(name, value);
+    });
+    const wasInserted = !insertedDepartments.has(normalizedName);
+    insertedDepartments.add(normalizedName);
     return {
       upsertedCount: wasInserted ? 1 : 0
     };
   };
   AttendanceClass.updateOne = async ({ department, className }) => {
-    const key = `${department}:${className}`;
+    const normalizedDepartment = ["CE/IT", "CSE", "AIML"].find((value) => {
+      return matchesValue(department, value);
+    });
+    const normalizedClassName = ["CE4", "CSE1", "AIML1"].find((value) => {
+      return matchesValue(className, value);
+    });
+    const key = `${normalizedDepartment}:${normalizedClassName}`;
     const wasInserted = !insertedClasses.has(key);
     insertedClasses.add(key);
     return {
@@ -526,8 +567,8 @@ test("sync creates missing CE/IT, CSE, and AIML master records once", async () =
 
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.body.data, {
-      insertedDepartmentCount: 3,
-      insertedClassCount: 3
+      departmentsCreated: 3,
+      classesCreated: 3
     });
     assert.deepEqual([...insertedDepartments].sort(), ["AIML", "CE/IT", "CSE"]);
   } finally {
