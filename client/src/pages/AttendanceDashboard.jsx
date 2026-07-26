@@ -62,6 +62,14 @@ function AttendanceDashboard() {
       badge: `${statsData.totalSheets} Saved`
     },
     {
+      title: "Department & Class Setup",
+      description: "Create departments and class options used by student rosters and attendance sheets.",
+      btnText: "Manage Academic Setup",
+      to: "/attendance-setup",
+      icon: "⚙️",
+      badge: "Academic Setup"
+    },
+    {
       title: "Class and Department Filter",
       description: "Filter student rosters by department (CE/IT, CSE, AIML) and class (CE4, CE6) before generating sheets.",
       btnText: "Filter Roster",
@@ -157,6 +165,13 @@ function AttendanceDashboard() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/80 px-5 py-3.5 text-sm font-black text-slate-200 shadow-md backdrop-blur-md transition-all duration-300 hover:border-teal-400 hover:bg-slate-800 hover:text-white active:scale-98"
               >
                 <span>View Records</span>
+              </Link>
+
+              <Link
+                to="/attendance-setup"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-500/40 bg-teal-950/60 px-5 py-3.5 text-sm font-black text-teal-200 shadow-md backdrop-blur-md transition-all duration-300 hover:border-teal-400 hover:bg-teal-900 hover:text-white active:scale-98"
+              >
+                <span>⚙️ Academic Setup</span>
               </Link>
             </div>
 

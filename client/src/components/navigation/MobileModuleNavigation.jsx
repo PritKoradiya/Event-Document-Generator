@@ -23,7 +23,8 @@ const attendanceNavItems = [
   { name: "Overview", path: "/attendance-dashboard" },
   { name: "Student Master", path: "/student-list" },
   { name: "Create Attendance Sheet", path: "/create-attendance-sheet" },
-  { name: "Attendance Records", path: "/attendance-records" }
+  { name: "Attendance Records", path: "/attendance-records" },
+  { name: "Academic Setup", path: "/attendance-setup" }
 ];
 
 function MobileModuleNavigation({ module = "certificate" }) {

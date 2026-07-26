@@ -26,6 +26,7 @@ const PosterRecords = lazy(() => import("./pages/PosterRecords.jsx"));
 const EventReports = lazy(() => import("./pages/EventReports.jsx"));
 const StudentList = lazy(() => import("./pages/StudentList.jsx"));
 const AttendanceRecords = lazy(() => import("./pages/AttendanceRecords.jsx"));
+const AttendanceSetup = lazy(() => import("./pages/AttendanceSetup.jsx"));
 const NotFound = lazy(() => import("./pages/NotFound.jsx"));
 
 function App() {
@@ -64,6 +65,7 @@ function App() {
             <Route path="/student-list" element={<StudentList />} />
             <Route path="/create-attendance-sheet" element={<CreateAttendanceSheet />} />
             <Route path="/attendance-records" element={<AttendanceRecords />} />
+            <Route path="/attendance-setup" element={<AttendanceSetup />} />
           </Route>
 
           {/* 5. Wildcard 404 Fallback */}

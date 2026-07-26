@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import ModuleHeader from "../components/ui/ModuleHeader.jsx";
+import DepartmentClassSelector from "../components/attendance/DepartmentClassSelector.jsx";
 import {
   getStudents,
   createStudent,
@@ -12,9 +13,6 @@ import {
   getStudentFilterSummary,
   deleteStudentsByClass
 } from "../services/attendanceStudentApi.js";
-
-const DEPARTMENTS = ["CE/IT", "CSE", "AIML", "ME", "EC", "CIVIL"];
-const CLASSES = ["CE4", "CE6", "CSE2", "AIML1", "ME2", "EC2"];
 
 function StudentList() {
   const [students, setStudents] = useState([]);
@@ -403,41 +401,16 @@ function StudentList() {
 
       <div className="app-glass-toolbar p-5 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1">
-                Department
-              </label>
-              <select
-                value={filterDept}
-                onChange={(e) => setFilterDept(e.target.value)}
-                className="rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 shadow-sm focus:border-teal-500 focus:bg-white focus:outline-none"
-              >
-                <option value="All">All Departments</option>
-                {DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1">
-                Class
-              </label>
-              <select
-                value={filterClass}
-                onChange={(e) => setFilterClass(e.target.value)}
-                className="rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 shadow-sm focus:border-teal-500 focus:bg-white focus:outline-none"
-              >
-                <option value="All">All Classes</option>
-                {CLASSES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+          <div className="flex flex-wrap items-center gap-3 flex-1">
+            <div className="w-full lg:max-w-md">
+              <DepartmentClassSelector
+                department={filterDept}
+                className={filterClass}
+                onDepartmentChange={setFilterDept}
+                onClassChange={setFilterClass}
+                showAllOptions={true}
+                allowCreate={false}
+              />
             </div>
 
             <div className="flex-1 min-w-[200px]">
@@ -719,39 +692,14 @@ function StudentList() {
             )}
 
             <form onSubmit={handleSaveStudent} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Department *
-                  </label>
-                  <select
-                    value={formDept}
-                    onChange={(e) => setFormDept(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 focus:border-teal-500 focus:bg-white focus:outline-none"
-                  >
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Class *</label>
-                  <select
-                    value={formClass}
-                    onChange={(e) => setFormClass(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 focus:border-teal-500 focus:bg-white focus:outline-none"
-                  >
-                    {CLASSES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <DepartmentClassSelector
+                department={formDept}
+                className={formClass}
+                onDepartmentChange={setFormDept}
+                onClassChange={setFormClass}
+                required={true}
+                allowCreate={true}
+              />
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -879,41 +827,14 @@ function StudentList() {
             )}
 
             <form onSubmit={handleCsvImport} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Target Department *
-                  </label>
-                  <select
-                    value={bulkDept}
-                    onChange={(e) => setBulkDept(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 focus:border-teal-500 focus:bg-white focus:outline-none"
-                  >
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Target Class *
-                  </label>
-                  <select
-                    value={bulkClass}
-                    onChange={(e) => setBulkClass(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 focus:border-teal-500 focus:bg-white focus:outline-none"
-                  >
-                    {CLASSES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <DepartmentClassSelector
+                department={bulkDept}
+                className={bulkClass}
+                onDepartmentChange={setBulkDept}
+                onClassChange={setBulkClass}
+                required={true}
+                allowCreate={true}
+              />
 
               <div>
                 <div className="flex items-center justify-between mb-1">

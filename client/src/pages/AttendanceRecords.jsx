@@ -1,17 +1,13 @@
 import { useEffect, useState } from "react";
 import ModuleHeader from "../components/ui/ModuleHeader.jsx";
 import AttendanceSheetSvgPreview from "../components/attendance/AttendanceSheetSvgPreview.jsx";
+import DepartmentClassSelector from "../components/attendance/DepartmentClassSelector.jsx";
 import {
   getAttendanceSheets,
   regenerateAttendanceSheet,
   duplicateAttendanceSheet,
   deleteAttendanceSheet
 } from "../services/attendanceSheetApi.js";
-import downloadAttendanceSheetPdf from "../utils/downloadAttendanceSheetPdf.js";
-import validateAttendanceSheetLayout from "../utils/validateAttendanceSheetLayout.js";
-
-const DEPARTMENTS = ["CE/IT", "CSE", "AIML", "ME", "EC", "CIVIL"];
-const CLASSES = ["CE4", "CE6", "CSE2", "AIML1", "ME2", "EC2"];
 
 const formatPdfFileName = (heading, className, date, sheetId) => {
   const sanitize = (str) => (str || "").trim().replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_+/g, "_");
@@ -189,42 +185,17 @@ function AttendanceRecords() {
       )}
 
       {/* Filter Toolbar */}
-      <div className="app-glass-toolbar p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
-              Department
-            </label>
-            <select
-              value={filterDept}
-              onChange={(e) => setFilterDept(e.target.value)}
-              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 focus:border-teal-500 focus:outline-none"
-            >
-              <option value="All">All Departments</option>
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
-              Class
-            </label>
-            <select
-              value={filterClass}
-              onChange={(e) => setFilterClass(e.target.value)}
-              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 focus:border-teal-500 focus:outline-none"
-            >
-              <option value="All">All Classes</option>
-              {CLASSES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+      <div className="app-glass-toolbar p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="w-full md:max-w-md">
+            <DepartmentClassSelector
+              department={filterDept}
+              className={filterClass}
+              onDepartmentChange={setFilterDept}
+              onClassChange={setFilterClass}
+              showAllOptions={true}
+              allowCreate={false}
+            />
           </div>
 
           <div>

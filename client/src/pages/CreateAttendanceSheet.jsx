@@ -2,16 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import ModuleHeader from "../components/ui/ModuleHeader.jsx";
 import AttendanceSheetSvgPreview from "../components/attendance/AttendanceSheetSvgPreview.jsx";
 import AttendanceTypographyTestPanel from "../components/attendance/AttendanceTypographyTestPanel.jsx";
+import DepartmentClassSelector from "../components/attendance/DepartmentClassSelector.jsx";
 import { getStudents } from "../services/attendanceStudentApi.js";
-import {
-  createAttendanceSheet,
-  saveDraftAttendanceSheet
-} from "../services/attendanceSheetApi.js";
-import downloadAttendanceSheetPdf from "../utils/downloadAttendanceSheetPdf.js";
-import validateAttendanceSheetLayout from "../utils/validateAttendanceSheetLayout.js";
-
-const DEPARTMENTS = ["CE/IT", "CSE", "AIML", "ME", "EC", "CIVIL"];
-const CLASSES = ["CE4", "CE6", "CSE2", "AIML1", "ME2", "EC2"];
 
 // Helper to format safe filename
 const formatPdfFileName = (heading, className, date, sheetId) => {
@@ -298,43 +290,14 @@ function CreateAttendanceSheet() {
 
         <form onSubmit={handleGenerate} className="space-y-6">
           {/* Row 1: Department & Class Selectors */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                1. Department *
-              </label>
-              <select
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-teal-500 focus:bg-white focus:outline-none"
-                required
-              >
-                {DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>
-                    {d} Department
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5">
-                2. Class *
-              </label>
-              <select
-                value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 shadow-sm focus:border-teal-500 focus:bg-white focus:outline-none"
-                required
-              >
-                {CLASSES.map((c) => (
-                  <option key={c} value={c}>
-                    Class- {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <DepartmentClassSelector
+            department={department}
+            className={className}
+            onDepartmentChange={setDepartment}
+            onClassChange={setClassName}
+            required={true}
+            allowCreate={true}
+          />
 
           {/* Dynamic Student Roster Badge */}
           <div className="rounded-2xl border border-teal-200/80 bg-gradient-to-r from-teal-50/80 to-emerald-50/80 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
