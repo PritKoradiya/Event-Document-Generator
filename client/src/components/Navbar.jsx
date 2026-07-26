@@ -3,7 +3,7 @@ import BackgroundSettingsToggle from "./ui/BackgroundSettingsToggle.jsx";
 
 function Navbar() {
   return (
-    <header className="sticky top-0 z-30 border-b border-blue-500/20 bg-slate-950/80 shadow-lg backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-blue-500/20 bg-[rgba(3,10,28,0.72)] shadow-lg backdrop-blur-xl">
       <div className="mx-auto flex min-h-20 w-full max-w-[1600px] flex-col items-start justify-between gap-4 px-4 py-4 sm:px-5 md:flex-row md:items-center lg:px-6">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-[32px] font-sans">

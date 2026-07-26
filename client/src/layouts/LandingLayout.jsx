@@ -6,7 +6,7 @@ function LandingLayout() {
   return (
     <div className="relative min-h-screen bg-transparent text-slate-100 flex flex-col justify-between overflow-x-hidden">
       {/* Landing Header */}
-      <header className="relative z-20 w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl">
+      <header className="relative z-20 w-full border-b border-slate-800/80 bg-[rgba(3,10,28,0.72)] backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Left Logo / Mark */}
           <div className="flex items-center gap-3">

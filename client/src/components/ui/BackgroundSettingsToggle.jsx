@@ -1,30 +1,35 @@
 import { useState, useEffect, useRef } from "react";
+import { getSavedBackgroundMode, setSavedBackgroundMode } from "../../utils/backgroundMode.js";
 
 function BackgroundSettingsToggle() {
-  const getNormalizedMode = () => {
-    try {
-      const saved = localStorage.getItem("eventDocumentBackgroundMode");
-      return ["full", "reduced", "off"].includes(saved) ? saved : "full";
-    } catch {
-      return "full";
-    }
-  };
-
-  const [mode, setMode] = useState(getNormalizedMode);
+  const [mode, setMode] = useState(getSavedBackgroundMode);
   const [videoStatus, setVideoStatus] = useState("Loading");
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
   const handleModeChange = (newMode) => {
-    setMode(newMode);
+    const normalized = setSavedBackgroundMode(newMode);
+    setMode(normalized);
     try {
-      localStorage.setItem("eventDocumentBackgroundMode", newMode);
       window.dispatchEvent(new Event("bgModeChange"));
     } catch (e) {
-      console.warn("Could not save background mode to localStorage", e);
+      console.warn("Could not dispatch bgModeChange event", e);
     }
     setIsOpen(false);
   };
+
+  // Listen for external mode changes
+  useEffect(() => {
+    const handleExternalChange = () => {
+      setMode(getSavedBackgroundMode());
+    };
+    window.addEventListener("bgModeChange", handleExternalChange);
+    window.addEventListener("storage", handleExternalChange);
+    return () => {
+      window.removeEventListener("bgModeChange", handleExternalChange);
+      window.removeEventListener("storage", handleExternalChange);
+    };
+  }, []);
 
   // Listen to video status updates from GalaxyBackground (DEV diagnostic badge)
   useEffect(() => {
@@ -52,10 +57,10 @@ function BackgroundSettingsToggle() {
     };
   }, []);
 
-  const modeLabels = {
-    full: "Full Galaxy",
-    reduced: "Stars Only",
-    off: "Static Off"
+  const buttonLabels = {
+    video: "BG: Video",
+    stars: "BG: Stars",
+    static: "BG: Static"
   };
 
   return (
@@ -89,11 +94,10 @@ function BackgroundSettingsToggle() {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-slate-900/80 px-3 py-1.5 text-xs font-bold text-slate-200 backdrop-blur-md transition hover:border-blue-400 hover:bg-slate-800 hover:text-white"
-        title="Background Motion Settings"
+        title="Background Settings"
       >
         <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-        <span className="hidden sm:inline">BG:</span>
-        <span className="text-cyan-300 font-extrabold">{modeLabels[mode]}</span>
+        <span className="text-cyan-300 font-extrabold">{buttonLabels[mode] || "BG: Video"}</span>
         <svg
           className={`h-3.5 w-3.5 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"
@@ -107,46 +111,46 @@ function BackgroundSettingsToggle() {
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-2xl z-50 animate-hero-fade-in">
           <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1">
-            Animated Background
+            BACKGROUND
           </div>
           <div className="space-y-1">
             <button
               type="button"
-              onClick={() => handleModeChange("full")}
+              onClick={() => handleModeChange("video")}
               className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition ${
-                mode === "full"
+                mode === "video"
                   ? "bg-blue-600/30 text-cyan-300 border border-blue-500/40"
                   : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
               }`}
             >
-              <span>Full Galaxy (Video + Stars)</span>
-              {mode === "full" && <span className="text-cyan-400">✓</span>}
+              <span>Video Background</span>
+              {mode === "video" && <span className="text-cyan-400 font-bold">✓</span>}
             </button>
 
             <button
               type="button"
-              onClick={() => handleModeChange("reduced")}
+              onClick={() => handleModeChange("stars")}
               className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition ${
-                mode === "reduced"
+                mode === "stars"
                   ? "bg-blue-600/30 text-cyan-300 border border-blue-500/40"
                   : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
               }`}
             >
-              <span>Reduced (Stars Only)</span>
-              {mode === "reduced" && <span className="text-cyan-400">✓</span>}
+              <span>Stars Background</span>
+              {mode === "stars" && <span className="text-cyan-400 font-bold">✓</span>}
             </button>
 
             <button
               type="button"
-              onClick={() => handleModeChange("off")}
+              onClick={() => handleModeChange("static")}
               className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition ${
-                mode === "off"
+                mode === "static"
                   ? "bg-blue-600/30 text-cyan-300 border border-blue-500/40"
                   : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
               }`}
             >
-              <span>Off (Static Gradient)</span>
-              {mode === "off" && <span className="text-cyan-400">✓</span>}
+              <span>Static Background</span>
+              {mode === "static" && <span className="text-cyan-400 font-bold">✓</span>}
             </button>
           </div>
         </div>

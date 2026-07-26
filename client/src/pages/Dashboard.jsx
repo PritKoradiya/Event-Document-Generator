@@ -11,19 +11,19 @@ function Dashboard() {
           SMART EVENT DOCUMENT WORKSPACE
         </div>
 
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1] font-sans hero-title-shadow">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-[#ffffff] leading-[1.1] font-sans hero-title-shadow">
           {brandingData.appName}
         </h1>
 
-        <h2 className="mt-3 text-lg sm:text-2xl font-bold text-[#74b3ff] max-w-4xl mx-auto leading-snug">
+        <h2 className="mt-3 text-lg sm:text-2xl font-bold text-[#73b7ff] max-w-4xl mx-auto leading-snug">
           {brandingData.subtitle}
         </h2>
 
-        <p className="mt-4 text-sm sm:text-lg font-medium text-[#dbeafe] max-w-3xl mx-auto leading-relaxed">
+        <p className="mt-4 text-sm sm:text-lg font-medium text-[#d5deed] max-w-3xl mx-auto leading-relaxed">
           Create certificates, posters, structured event reports, and multipage attendance sheets from one professional workspace.
         </p>
 
-        <p className="mt-2 text-xs sm:text-sm font-semibold text-[#aebed6] tracking-wide">
+        <p className="mt-2 text-xs sm:text-sm font-semibold text-[#a8b6cd] tracking-wide">
           Live previews, student master lists, auto-pagination, vector PDF/PNG exports, and complete record management.
         </p>
       </div>

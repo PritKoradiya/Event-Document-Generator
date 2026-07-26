@@ -25,9 +25,20 @@
     #11132f 100%
   );
   pointer-events: none;
+  transition: background 0.6s ease-in-out;
 }
 
-/* Layer 1: Video Layer */
+/* Mode 1: VIDEO MODE STYLES */
+.galaxy-background--mode-video .galaxy-base-gradient {
+  background: linear-gradient(
+    135deg,
+    #020617 0%,
+    #07152e 45%,
+    #0b1738 72%,
+    #11132f 100%
+  );
+}
+
 .galaxy-video-layer {
   position: absolute;
   inset: 0;
@@ -39,20 +50,18 @@
   pointer-events: none;
   opacity: 0;
   filter:
-    brightness(0.72)
-    contrast(1.06)
-    saturate(1.08)
-    hue-rotate(3deg);
+    brightness(0.64)
+    contrast(1.05)
+    saturate(1.05);
   transition:
     opacity 900ms ease,
     filter 900ms ease;
 }
 
-.galaxy-video-layer.is-ready {
-  opacity: var(--galaxy-video-opacity, 0.52);
+.galaxy-background--mode-video .galaxy-video-layer.is-ready {
+  opacity: 0.82;
 }
 
-/* Layer 2: Video Blue Tint Overlay */
 .galaxy-video-tint {
   position: absolute;
   inset: 0;
@@ -60,13 +69,34 @@
   pointer-events: none;
   background: linear-gradient(
     135deg,
-    rgba(2, 10, 30, 0.20),
-    rgba(10, 42, 90, 0.10),
-    rgba(22, 18, 68, 0.22)
+    rgba(2, 10, 30, 0.15),
+    rgba(10, 42, 90, 0.08),
+    rgba(22, 18, 68, 0.15)
   );
 }
 
-/* Layer 3: Canvas Star Field Layer */
+.galaxy-background--mode-video .galaxy-readability-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(2, 6, 23, 0.20),
+    rgba(2, 6, 23, 0.32)
+  );
+}
+
+/* Mode 2: STARS MODE STYLES */
+.galaxy-background--mode-stars .galaxy-base-gradient {
+  background: linear-gradient(
+    135deg,
+    #020617 0%,
+    #071a38 52%,
+    #101432 100%
+  );
+}
+
 .galaxy-star-canvas {
   position: absolute;
   inset: 0;
@@ -78,215 +108,41 @@
   transition: opacity 0.6s ease;
 }
 
-/* Layer 4: Nebula Blobs */
-.galaxy-nebula {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  filter: blur(80px);
-  will-change: transform, opacity;
-  z-index: 4;
-  transition: opacity 0.8s ease-in-out;
-}
-
-.galaxy-nebula-one {
-  top: -10%;
-  left: -10%;
-  width: 55vw;
-  height: 55vw;
-  max-width: 800px;
-  max-height: 800px;
-  background: radial-gradient(
-    circle at center,
-    rgba(14, 165, 233, 0.24) 0%,
-    rgba(56, 189, 248, 0.12) 45%,
-    transparent 70%
-  );
-  animation: galaxyNebulaFloatOne 24s infinite alternate ease-in-out;
-}
-
-.galaxy-nebula-two {
-  top: 30%;
-  right: -10%;
-  width: 50vw;
-  height: 50vw;
-  max-width: 750px;
-  max-height: 750px;
-  background: radial-gradient(
-    circle at center,
-    rgba(139, 92, 246, 0.22) 0%,
-    rgba(99, 102, 241, 0.12) 50%,
-    transparent 72%
-  );
-  animation: galaxyNebulaFloatTwo 28s infinite alternate ease-in-out;
-}
-
-.galaxy-nebula-three {
-  bottom: -15%;
-  left: 20%;
-  width: 60vw;
-  height: 60vw;
-  max-width: 900px;
-  max-height: 900px;
-  background: radial-gradient(
-    circle at center,
-    rgba(20, 184, 166, 0.18) 0%,
-    rgba(30, 58, 138, 0.12) 50%,
-    transparent 75%
-  );
-  animation: galaxyNebulaFloatThree 32s infinite alternate ease-in-out;
-}
-
-/* Keyframe Animations for Nebula Floating */
-@keyframes galaxyNebulaFloatOne {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(35px, -25px, 0) scale(1.08);
-  }
-  100% {
-    transform: translate3d(-20px, 30px, 0) scale(0.95);
-  }
-}
-
-@keyframes galaxyNebulaFloatTwo {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(-40px, 30px, 0) scale(1.12);
-  }
-  100% {
-    transform: translate3d(25px, -20px, 0) scale(0.92);
-  }
-}
-
-@keyframes galaxyNebulaFloatThree {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(30px, 20px, 0) scale(1.06);
-  }
-  100% {
-    transform: translate3d(-35px, -30px, 0) scale(0.96);
-  }
-}
-
-/* Layer 5: Grid Pattern */
-.galaxy-grid {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  pointer-events: none;
-  background-image: radial-gradient(rgba(56, 189, 248, 0.07) 1px, transparent 1px);
-  background-size: 36px 36px;
-  opacity: 0.5;
-}
-
-/* Layer 6: Vignette Shadow & Readability Overlays */
-.galaxy-vignette {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse at center,
-    transparent 42%,
-    rgba(1, 5, 18, 0.24) 100%
+/* Mode 3: STATIC MODE STYLES */
+.galaxy-background--mode-static .galaxy-base-gradient {
+  background: linear-gradient(
+    135deg,
+    #020617 0%,
+    #08214a 48%,
+    #111635 100%
   );
 }
 
-.galaxy-readability-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  pointer-events: none;
-  background: radial-gradient(
-    circle at 50% 32%,
-    rgba(20, 65, 130, 0.04),
-    rgba(2, 6, 23, 0.16) 70%
-  );
+/* Hide unused elements across modes */
+.galaxy-background--mode-stars .galaxy-video-layer,
+.galaxy-background--mode-stars .galaxy-video-tint,
+.galaxy-background--mode-stars .galaxy-readability-overlay,
+.galaxy-background--mode-static .galaxy-video-layer,
+.galaxy-background--mode-static .galaxy-video-tint,
+.galaxy-background--mode-static .galaxy-readability-overlay {
+  display: none !important;
 }
 
-/* Layer 7: Cursor Glow */
-.galaxy-cursor-glow {
-  position: fixed;
-  width: 450px;
-  height: 450px;
-  margin-left: -225px;
-  margin-top: -225px;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(
-    circle at center,
-    rgba(56, 189, 248, 0.09) 0%,
-    rgba(99, 102, 241, 0.04) 40%,
-    transparent 70%
-  );
-  z-index: 7;
-  will-change: transform, opacity;
-  transition: opacity 0.4s ease;
-}
-
-/* Route Variants Video Opacity Levels */
-.galaxy-background--landing {
-  --galaxy-video-opacity: 0.58;
-  --galaxy-star-opacity: 1;
-}
-
-.galaxy-background--dashboard {
-  --galaxy-video-opacity: 0.45;
-  --galaxy-star-opacity: 0.85;
-}
-
-.galaxy-background--workspace {
-  --galaxy-video-opacity: 0.30;
-  --galaxy-star-opacity: 0.65;
-}
-
-.galaxy-background--management,
-.galaxy-background--record {
-  --galaxy-video-opacity: 0.23;
-  --galaxy-star-opacity: 0.50;
-}
-
-/* Background Setting Mode: OFF */
-.galaxy-background--mode-off .galaxy-video-layer,
-.galaxy-background--mode-off .galaxy-video-tint,
-.galaxy-background--mode-off .galaxy-nebula,
-.galaxy-background--mode-off .galaxy-grid,
-.galaxy-background--mode-off .galaxy-cursor-glow {
+.galaxy-background--mode-video .galaxy-star-canvas,
+.galaxy-background--mode-static .galaxy-star-canvas {
   display: none !important;
 }
 
 /* Mobile Optimizations */
 @media (max-width: 767px) {
-  .galaxy-video-layer.is-ready {
-    opacity: min(var(--galaxy-video-opacity, 0.30), 0.30);
-  }
-  .galaxy-nebula {
-    filter: blur(50px);
-  }
-  .galaxy-cursor-glow {
-    display: none !important;
-  }
-  .galaxy-grid {
-    background-size: 24px 24px;
-    opacity: 0.3;
+  .galaxy-background--mode-video .galaxy-video-layer.is-ready {
+    opacity: 0.75;
   }
 }
 
 /* Reduced Motion Override */
 @media (prefers-reduced-motion: reduce) {
   .galaxy-video-layer {
-    display: none !important;
-  }
-  .galaxy-nebula {
-    animation: none !important;
-  }
-  .galaxy-cursor-glow {
-    display: none !important;
+    opacity: 0.82;
   }
 }
