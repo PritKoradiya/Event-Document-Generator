@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { allowedOrigins } from "./config/env.js";
 import { apiNotFound, errorHandler } from "./middleware/errorHandler.js";
+import attendanceOptionRoutes from "./routes/attendanceOptionRoutes.js";
 import attendanceSheetRoutes from "./routes/attendanceSheetRoutes.js";
 import attendanceStudentRoutes from "./routes/attendanceStudentRoutes.js";
 import certificateRoutes from "./routes/certificateRoutes.js";
@@ -36,6 +37,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads"), {
 
 app.use("/api/health", healthRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/attendance-options", attendanceOptionRoutes);
 app.use("/api/attendance-students", attendanceStudentRoutes);
 app.use("/api/attendance-sheets", attendanceSheetRoutes);
 app.use("/api/certificates", certificateRoutes);

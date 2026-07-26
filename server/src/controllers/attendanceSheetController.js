@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
 import AttendanceSheet from "../models/AttendanceSheet.js";
 import AttendanceStudent from "../models/AttendanceStudent.js";
+import {
+  createCaseInsensitiveExactPattern,
+  isAttendanceOptionPairValid
+} from "../services/attendanceOptionService.js";
+import {
+  normalizeClassName,
+  normalizeDepartmentName
+} from "../utils/attendanceOptionUtils.js";
 
 const ROWS_PER_PAGE = 39;
 const REQUIRED_FIELDS = [
@@ -32,9 +40,15 @@ const normalizeSheetField = (field, value) => {
     return value;
   }
 
-  const trimmedValue = value.trim();
+  if (field === "department") {
+    return normalizeDepartmentName(value);
+  }
 
-  return field === "className" ? trimmedValue.toUpperCase() : trimmedValue;
+  if (field === "className") {
+    return normalizeClassName(value);
+  }
+
+  return value.trim();
 };
 
 const createAttendanceSheetIdFromNumber = (year, number) => {
@@ -85,8 +99,8 @@ const createAttendanceSheetRecord = async (sheetData) => {
 
 const getStudentSnapshot = async (department, className) => {
   const students = await AttendanceStudent.find({
-    department,
-    className,
+    department: createCaseInsensitiveExactPattern(department),
+    className: createCaseInsensitiveExactPattern(className),
     isActive: true
   }).sort({
     enrollmentNo: 1,
@@ -121,7 +135,7 @@ const copyStudentSnapshot = (students) => {
 };
 
 const controllerErrorResponse = (res, error, fallbackMessage) => {
-  if (error?.name === "ValidationError") {
+  if (error?.status === 400 || error?.name === "ValidationError") {
     return res.status(400).json({
       success: false,
       message: error.message
@@ -140,7 +154,8 @@ export const createAttendanceSheet = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    const missingFields = REQUIRED_FIELDS.filter((field) => isMissingRequiredValue(req.body[field]));
+    const body = req.body || {};
+    const missingFields = REQUIRED_FIELDS.filter((field) => isMissingRequiredValue(body[field]));
 
     if (missingFields.length > 0) {
       return res.status(400).json({
@@ -151,11 +166,23 @@ export const createAttendanceSheet = async (req, res) => {
 
     const sheetData = Object.fromEntries(REQUIRED_FIELDS.map((field) => [
       field,
-      normalizeSheetField(field, req.body[field])
+      normalizeSheetField(field, body[field])
     ]));
     const students = await getStudentSnapshot(sheetData.department, sheetData.className);
 
     if (students.length === 0) {
+      const attendanceOptionIsValid = await isAttendanceOptionPairValid(
+        sheetData.department,
+        sheetData.className
+      );
+
+      if (!attendanceOptionIsValid) {
+        return res.status(400).json({
+          success: false,
+          message: "The selected department or class does not exist. Please create it first."
+        });
+      }
+
       return res.status(404).json({
         success: false,
         message: "No students found for the selected department and class."
@@ -372,6 +399,18 @@ export const regenerateAttendanceSheet = async (req, res) => {
     );
 
     if (attendanceSheet.status === "Generated" && students.length === 0) {
+      const attendanceOptionIsValid = await isAttendanceOptionPairValid(
+        attendanceSheet.department,
+        attendanceSheet.className
+      );
+
+      if (!attendanceOptionIsValid) {
+        return res.status(400).json({
+          success: false,
+          message: "The selected department or class does not exist. Please create it first."
+        });
+      }
+
       return res.status(404).json({
         success: false,
         message: "No students found for the selected department and class."

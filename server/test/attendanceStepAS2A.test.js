@@ -14,6 +14,8 @@ import {
   regenerateAttendanceSheet,
   updateAttendanceSheet
 } from "../src/controllers/attendanceSheetController.js";
+import AttendanceClass from "../src/models/AttendanceClass.js";
+import AttendanceDepartment from "../src/models/AttendanceDepartment.js";
 import AttendanceSheet from "../src/models/AttendanceSheet.js";
 import AttendanceStudent from "../src/models/AttendanceStudent.js";
 
@@ -69,9 +71,13 @@ test("CSV import handles valid, duplicate, invalid, empty, and wrong-header rows
   const originalReadyState = mongoose.connection.readyState;
   const originalFind = AttendanceStudent.find;
   const originalBulkWrite = AttendanceStudent.bulkWrite;
+  const originalClassExists = AttendanceClass.exists;
+  const originalDepartmentExists = AttendanceDepartment.exists;
   const storedStudents = [];
 
   mongoose.connection.readyState = 1;
+  AttendanceClass.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
+  AttendanceDepartment.exists = async () => ({ _id: new mongoose.Types.ObjectId() });
   AttendanceStudent.find = (filters) => {
     let matchedStudents = storedStudents;
 
@@ -176,6 +182,8 @@ test("CSV import handles valid, duplicate, invalid, empty, and wrong-header rows
   } finally {
     AttendanceStudent.find = originalFind;
     AttendanceStudent.bulkWrite = originalBulkWrite;
+    AttendanceClass.exists = originalClassExists;
+    AttendanceDepartment.exists = originalDepartmentExists;
     mongoose.connection.readyState = originalReadyState;
   }
 });
@@ -278,8 +286,15 @@ test("attendance generation, update, regeneration, and duplication preserve snap
   mongoose.connection.readyState = 1;
   AttendanceStudent.find = (filters) => ({
     sort: async () => currentStudents.filter((student) => {
-      return student.department === filters.department
-        && student.className === filters.className
+      const departmentMatches = filters.department instanceof RegExp
+        ? filters.department.test(student.department)
+        : student.department === filters.department;
+      const classMatches = filters.className instanceof RegExp
+        ? filters.className.test(student.className)
+        : student.className === filters.className;
+
+      return departmentMatches
+        && classMatches
         && student.isActive === filters.isActive;
     })
   });

@@ -108,6 +108,12 @@ The Attendance Sheet Generator manages reusable student records and generates st
 - Delete a complete department/class roster with explicit confirmation
 - Filter summary count before deleting a complete roster
 - Generated attendance-sheet snapshots remain unchanged when master-list students are deleted
+- Dynamic attendance department and class dropdown options
+- Create new departments and classes inside a department
+- Activate or deactivate attendance options
+- Safe deletion protection for options used by students or attendance sheets
+- Existing student-option synchronization
+- Department-wise class filtering
 - Department and class filtering (CE/IT, CSE, AIML, etc.)
 - Fixed mentor-format SVG preview & rendering (A4 portrait `viewBox="0 0 210 297"`)
 - Direct Vector Multipage A4 PDF Export (`jsPDF` vector rendering using single source of truth metrics)
@@ -135,6 +141,28 @@ The Attendance Sheet Generator manages reusable student records and generates st
 POST   /api/attendance-students/bulk-delete
 GET    /api/attendance-students/filter-summary
 DELETE /api/attendance-students/class
+```
+
+#### Attendance Department and Class Management
+
+```txt
+GET    /api/attendance-options
+POST   /api/attendance-options/sync-existing
+
+POST   /api/attendance-options/departments
+PUT    /api/attendance-options/departments/:id
+DELETE /api/attendance-options/departments/:id
+
+POST   /api/attendance-options/classes
+PUT    /api/attendance-options/classes/:id
+DELETE /api/attendance-options/classes/:id
+```
+
+Create the default CE/IT, CSE, and AIML options only when they are missing:
+
+```bash
+cd server
+npm run seed:attendance-options
 ```
 
 #### Frontend Routes
