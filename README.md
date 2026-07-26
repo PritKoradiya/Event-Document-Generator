@@ -104,6 +104,10 @@ The Attendance Sheet Generator manages reusable student records and generates st
 - Student master-list management (`/student-list`)
 - CSV Template Download (`attendance_student_template.csv`) with frontend Blob fallback
 - Student CSV Roster Import (`studentCsv`, max 2MB) with duplicate and invalid row reporting table
+- Select and delete multiple students
+- Delete a complete department/class roster with explicit confirmation
+- Filter summary count before deleting a complete roster
+- Generated attendance-sheet snapshots remain unchanged when master-list students are deleted
 - Department and class filtering (CE/IT, CSE, AIML, etc.)
 - Fixed mentor-format SVG preview & rendering (A4 portrait `viewBox="0 0 210 297"`)
 - Direct Vector Multipage A4 PDF Export (`jsPDF` vector rendering using single source of truth metrics)
@@ -124,6 +128,14 @@ The Attendance Sheet Generator manages reusable student records and generates st
 - Student List Regeneration / Roster Refresh (`regenerateAttendanceSheet`)
 - Duplicate Attendance Sheet as Draft (`duplicateAttendanceSheet`)
 - Layout validation utility (`validateAttendanceSheetLayout`) before PDF generation
+
+#### Student Master Bulk APIs
+
+```txt
+POST   /api/attendance-students/bulk-delete
+GET    /api/attendance-students/filter-summary
+DELETE /api/attendance-students/class
+```
 
 #### Frontend Routes
 

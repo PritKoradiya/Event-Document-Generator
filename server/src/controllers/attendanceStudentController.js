@@ -501,6 +501,49 @@ export const getStudents = async (req, res) => {
   }
 };
 
+export const getStudentFilterSummary = async (req, res) => {
+  try {
+    if (!isDatabaseConnected()) {
+      return databaseUnavailableResponse(res);
+    }
+
+    if (isMissingRequiredValue(req.query.department)) {
+      return res.status(400).json({
+        success: false,
+        message: "Department is required."
+      });
+    }
+
+    if (isMissingRequiredValue(req.query.className)) {
+      return res.status(400).json({
+        success: false,
+        message: "Class name is required."
+      });
+    }
+
+    const department = String(req.query.department).trim();
+    const className = String(req.query.className).trim().toUpperCase();
+    const totalStudents = await AttendanceStudent.countDocuments({
+      department,
+      className
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        department,
+        className,
+        totalStudents
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch the student filter summary"
+    });
+  }
+};
+
 export const updateStudent = async (req, res) => {
   try {
     if (!isDatabaseConnected()) {
@@ -560,6 +603,108 @@ export const updateStudent = async (req, res) => {
   }
 };
 
+export const bulkDeleteStudents = async (req, res) => {
+  try {
+    if (!isDatabaseConnected()) {
+      return databaseUnavailableResponse(res);
+    }
+
+    const { studentIds } = req.body || {};
+
+    if (!Array.isArray(studentIds)) {
+      return res.status(400).json({
+        success: false,
+        message: "studentIds must be an array."
+      });
+    }
+
+    if (studentIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Select at least one student to delete."
+      });
+    }
+
+    if (studentIds.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "A maximum of 500 student IDs can be deleted in one request."
+      });
+    }
+
+    const uniqueIds = [];
+    const uniqueIdSet = new Set();
+    const invalidIds = [];
+
+    studentIds.forEach((studentId) => {
+      if (
+        typeof studentId !== "string"
+        || !mongoose.Types.ObjectId.isValid(studentId.trim())
+      ) {
+        invalidIds.push(studentId);
+        return;
+      }
+
+      const normalizedId = new mongoose.Types.ObjectId(studentId.trim()).toString();
+
+      if (!uniqueIdSet.has(normalizedId)) {
+        uniqueIdSet.add(normalizedId);
+        uniqueIds.push(normalizedId);
+      }
+    });
+
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "One or more student IDs are invalid.",
+        data: {
+          invalidIds
+        }
+      });
+    }
+
+    const matchingStudents = await AttendanceStudent.find({
+      _id: {
+        $in: uniqueIds
+      }
+    }).select("_id");
+    const matchingIds = matchingStudents.map((student) => student._id.toString());
+
+    if (matchingIds.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No matching students were found"
+      });
+    }
+
+    const matchingIdSet = new Set(matchingIds);
+    const missingIds = uniqueIds.filter((studentId) => !matchingIdSet.has(studentId));
+
+    // Student-master deletions never alter the student snapshots stored in AttendanceSheet records.
+    const result = await AttendanceStudent.deleteMany({
+      _id: {
+        $in: matchingIds
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Selected students deleted successfully",
+      data: {
+        requestedCount: uniqueIds.length,
+        matchedCount: matchingIds.length,
+        deletedCount: result.deletedCount,
+        missingIds
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete selected students"
+    });
+  }
+};
+
 export const deleteStudent = async (req, res) => {
   try {
     if (!isDatabaseConnected()) {
@@ -601,24 +746,62 @@ export const deleteStudentsByClass = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    const { department, className } = req.body;
+    const { department, className, confirmationText } = req.body || {};
 
-    if (isMissingRequiredValue(department) || isMissingRequiredValue(className)) {
+    if (isMissingRequiredValue(department)) {
       return res.status(400).json({
         success: false,
-        message: "Department and className are required before deleting a class."
+        message: "Department is required."
       });
     }
 
-    const result = await AttendanceStudent.deleteMany({
-      department: String(department).trim(),
-      className: String(className).trim().toUpperCase()
-    });
+    if (isMissingRequiredValue(className)) {
+      return res.status(400).json({
+        success: false,
+        message: "Class name is required."
+      });
+    }
+
+    if (isMissingRequiredValue(confirmationText)) {
+      return res.status(400).json({
+        success: false,
+        message: "Confirmation text is required."
+      });
+    }
+
+    const normalizedDepartment = String(department).trim();
+    const normalizedClassName = String(className).trim().toUpperCase();
+    const expectedConfirmation = `DELETE ${normalizedDepartment} ${normalizedClassName}`;
+
+    if (confirmationText !== expectedConfirmation) {
+      return res.status(400).json({
+        success: false,
+        message: `Confirmation text must exactly match "${expectedConfirmation}".`
+      });
+    }
+
+    const filters = {
+      department: normalizedDepartment,
+      className: normalizedClassName
+    };
+    const matchingCount = await AttendanceStudent.countDocuments(filters);
+
+    if (matchingCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No matching students were found"
+      });
+    }
+
+    // AttendanceSheet records own independent snapshots and are intentionally not updated here.
+    const result = await AttendanceStudent.deleteMany(filters);
 
     return res.status(200).json({
       success: true,
-      message: `${result.deletedCount} student(s) deleted successfully`,
+      message: `All students from ${normalizedDepartment} - ${normalizedClassName} deleted successfully`,
       data: {
+        department: normalizedDepartment,
+        className: normalizedClassName,
         deletedCount: result.deletedCount
       }
     });

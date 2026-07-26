@@ -1,10 +1,12 @@
 import express from "express";
 import {
+  bulkDeleteStudents,
   bulkCreateStudents,
   createStudent,
   deleteStudent,
   deleteStudentsByClass,
   downloadStudentCsvTemplate,
+  getStudentFilterSummary,
   getStudents,
   importStudentsFromCsv,
   updateStudent
@@ -17,7 +19,9 @@ const router = express.Router();
 router.param("id", validateObjectId);
 
 router.get("/csv-template", downloadStudentCsvTemplate);
+router.get("/filter-summary", getStudentFilterSummary);
 router.post("/import-csv", uploadStudentCsv, importStudentsFromCsv);
+router.post("/bulk-delete", bulkDeleteStudents);
 router.post("/bulk", bulkCreateStudents);
 router.post("/", createStudent);
 router.get("/", getStudents);
