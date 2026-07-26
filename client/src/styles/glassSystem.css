@@ -1,0 +1,275 @@
+/* Reusable Glass Design System for Event Document Generator */
+
+/* 1. Main Glass Surface - For normal page sections */
+.app-glass-surface {
+  background: linear-gradient(
+    145deg,
+    rgba(239, 246, 255, 0.82),
+    rgba(230, 238, 250, 0.74)
+  );
+  border: 1px solid rgba(190, 215, 250, 0.48);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+  box-shadow:
+    0 22px 55px rgba(0, 4, 20, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.52);
+  border-radius: 24px;
+}
+
+/* 2. Strong Glass Surface - For forms, tables, and record management */
+.app-glass-surface-strong {
+  background: rgba(248, 250, 255, 0.91);
+  border: 1px solid rgba(198, 217, 245, 0.66);
+  backdrop-filter: blur(20px) saturate(1.05);
+  -webkit-backdrop-filter: blur(20px) saturate(1.05);
+  box-shadow: 0 24px 58px rgba(0, 5, 24, 0.22);
+  border-radius: 24px;
+}
+
+/* 3. Hero Panels - For builder and feature page headers */
+.app-glass-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(235, 243, 255, 0.80),
+    rgba(244, 240, 255, 0.70)
+  );
+  border: 1px solid rgba(175, 205, 250, 0.48);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 24px 65px rgba(0, 5, 25, 0.20);
+  border-radius: 28px;
+}
+
+.app-glass-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.25),
+    transparent 36%,
+    rgba(120, 170, 255, 0.08)
+  );
+}
+
+/* 4. Panels & Cards */
+.app-glass-panel {
+  background: rgba(245, 249, 255, 0.84);
+  border: 1px solid rgba(190, 212, 242, 0.60);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: 20px;
+  box-shadow: 0 18px 42px rgba(0, 4, 20, 0.16);
+}
+
+.app-glass-card {
+  background: linear-gradient(
+    145deg,
+    rgba(243, 248, 255, 0.80),
+    rgba(234, 241, 252, 0.70)
+  );
+  border: 1px solid rgba(183, 209, 246, 0.52);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 22px;
+  box-shadow: 0 20px 46px rgba(0, 5, 22, 0.18);
+  transition:
+    transform 240ms ease,
+    border-color 240ms ease,
+    box-shadow 240ms ease;
+}
+
+.app-glass-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(140, 185, 255, 0.65);
+  box-shadow: 0 26px 56px rgba(0, 5, 25, 0.24);
+}
+
+/* 5. Toolbars & Filters */
+.app-glass-toolbar {
+  background: rgba(245, 249, 255, 0.86);
+  border: 1px solid rgba(190, 212, 242, 0.60);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: 20px;
+  box-shadow: 0 18px 42px rgba(0, 4, 20, 0.18);
+}
+
+/* 6. Side Navigation */
+.app-glass-sidebar {
+  background: linear-gradient(
+    180deg,
+    rgba(2, 10, 30, 0.82),
+    rgba(4, 14, 36, 0.72)
+  );
+  border: 1px solid rgba(95, 145, 235, 0.28);
+  backdrop-filter: blur(20px) saturate(1.12);
+  -webkit-backdrop-filter: blur(20px) saturate(1.12);
+  box-shadow: 0 25px 65px rgba(0, 3, 18, 0.40);
+  border-radius: 24px;
+  color: #c6d1e3;
+}
+
+.app-glass-sidebar a,
+.app-glass-sidebar button {
+  color: #c6d1e3;
+}
+
+.app-glass-sidebar a.active,
+.app-glass-sidebar button.active,
+.app-glass-sidebar a:hover,
+.app-glass-sidebar button:hover {
+  color: #ffffff;
+}
+
+/* 7. Modals & Overlays */
+.app-glass-modal {
+  background: rgba(248, 250, 255, 0.93);
+  border: 1px solid rgba(198, 216, 243, 0.70);
+  backdrop-filter: blur(24px) saturate(1.05);
+  -webkit-backdrop-filter: blur(24px) saturate(1.05);
+  box-shadow: 0 35px 95px rgba(0, 3, 18, 0.44);
+  border-radius: 26px;
+}
+
+.app-glass-modal-overlay {
+  background: rgba(1, 6, 20, 0.54);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+/* 8. Tables */
+.app-glass-table {
+  overflow: hidden;
+  background: rgba(248, 250, 255, 0.90);
+  border: 1px solid rgba(192, 211, 239, 0.66);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: 22px;
+  box-shadow: 0 22px 50px rgba(0, 5, 24, 0.20);
+}
+
+.app-glass-table table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.app-glass-table thead,
+.app-glass-table th {
+  background: rgba(231, 239, 251, 0.88);
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.app-glass-table tbody tr {
+  background: rgba(255, 255, 255, 0.58);
+  transition: background-color 150ms ease;
+}
+
+.app-glass-table tbody tr:hover {
+  background: rgba(230, 241, 255, 0.80);
+}
+
+/* 9. Form Input Fields */
+.app-glass-input,
+.app-glass-surface input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(.document-preview input),
+.app-glass-surface textarea:not(.document-preview textarea),
+.app-glass-surface select:not(.document-preview select),
+.app-glass-surface-strong input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(.document-preview input),
+.app-glass-surface-strong textarea:not(.document-preview textarea),
+.app-glass-surface-strong select:not(.document-preview select),
+.app-glass-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.app-glass-modal textarea,
+.app-glass-modal select {
+  background: rgba(248, 250, 255, 0.88);
+  border: 1px solid rgba(175, 198, 230, 0.76);
+  color: #172033;
+}
+
+.app-glass-input::placeholder,
+.app-glass-surface input::placeholder,
+.app-glass-surface textarea::placeholder,
+.app-glass-surface-strong input::placeholder,
+.app-glass-surface-strong textarea::placeholder,
+.app-glass-modal input::placeholder,
+.app-glass-modal textarea::placeholder {
+  color: #8794a8;
+}
+
+.app-glass-input:focus,
+.app-glass-surface input:focus,
+.app-glass-surface textarea:focus,
+.app-glass-surface select:focus,
+.app-glass-surface-strong input:focus,
+.app-glass-surface-strong textarea:focus,
+.app-glass-surface-strong select:focus,
+.app-glass-modal input:focus,
+.app-glass-modal textarea:focus,
+.app-glass-modal select:focus {
+  border-color: rgba(59, 130, 246, 0.85);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+  outline: none;
+}
+
+/* 10. Contrast Text Helpers for Light Glass Surfaces */
+.app-glass-text-heading {
+  color: #0f172a;
+}
+
+.app-glass-text-body {
+  color: #334155;
+}
+
+.app-glass-text-muted {
+  color: #64748b;
+}
+
+.app-glass-text-label {
+  color: #475569;
+}
+
+/* 11. Document Previews - CRITICAL SAFETY REQUIREMENT */
+/* Document preview containers must remain crisp and opaque white */
+.document-preview-opaque,
+.certificate-preview-shell,
+.poster-preview-shell,
+.report-page-a4,
+.attendance-sheet-preview,
+.certificate-svg,
+.poster-svg {
+  background: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* 12. Fallback without backdrop-filter support */
+@supports not (backdrop-filter: blur(10px)) {
+  .app-glass-surface,
+  .app-glass-surface-strong,
+  .app-glass-hero,
+  .app-glass-panel,
+  .app-glass-toolbar,
+  .app-glass-modal,
+  .app-glass-card {
+    background: rgba(245, 248, 255, 0.96);
+  }
+
+  .app-glass-sidebar {
+    background: rgba(3, 11, 29, 0.94);
+  }
+}
+
+/* 13. Responsive Mobile Safety */
+@media (max-width: 767px) {
+  .app-glass-surface,
+  .app-glass-surface-strong,
+  .app-glass-modal,
+  .app-glass-table {
+    background: rgba(248, 250, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}

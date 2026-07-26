@@ -247,7 +247,7 @@ function CreateEventReport() {
       </nav>
 
       {/* Page Hero */}
-      <div className="rounded-3xl border border-purple-100/80 bg-gradient-to-br from-purple-50/60 via-white to-pink-50/40 p-7 shadow-xs lg:p-9 animate-hero-fade-in">
+      <div className="app-glass-hero p-7 lg:p-9 animate-hero-fade-in">
         <span className="text-xs font-black uppercase tracking-widest text-purple-600">
           REPORT DOCUMENT EDITOR
         </span>
@@ -261,7 +261,7 @@ function CreateEventReport() {
 
       {/* Editor Form Container */}
       <form
-        className="rounded-3xl border border-slate-200/90 bg-white/90 p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-8"
+        className="app-glass-surface-strong p-6 sm:p-8 space-y-8"
         onSubmit={(event) => event.preventDefault()}
       >
         {/* Section 1: Basic Administrative Details */}
@@ -577,7 +577,7 @@ function CreateEventReport() {
       </form>
 
       {/* Live Academic Report Preview Canvas (Page 1 & Page 2) */}
-      <section className="rounded-3xl border border-slate-200/90 bg-slate-100/70 p-6 sm:p-8 shadow-xl space-y-6">
+      <section className="app-glass-surface p-6 sm:p-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <span className="text-xs font-black uppercase tracking-wider text-purple-600">Document Canvas</span>

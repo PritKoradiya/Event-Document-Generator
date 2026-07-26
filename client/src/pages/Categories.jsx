@@ -53,7 +53,7 @@ function Categories() {
       </nav>
 
       {/* Page Hero */}
-      <div className="rounded-3xl border border-blue-100/80 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 p-7 shadow-xs lg:p-9 animate-hero-fade-in">
+      <div className="app-glass-hero p-7 lg:p-9 animate-hero-fade-in">
         <span className="text-xs font-black uppercase tracking-widest text-blue-600">
           EVENT CATEGORIES
         </span>
@@ -67,7 +67,7 @@ function Categories() {
         {/* Quick Stats Bar */}
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((item) => (
-            <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-3.5 shadow-xs">
+            <div key={item.label} className="app-glass-panel p-3.5 flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-lg">
                 {item.icon}
               </span>
@@ -86,7 +86,7 @@ function Categories() {
           return (
             <div
               key={cat.name}
-              className="group relative flex flex-col justify-between rounded-3xl border border-slate-200/90 bg-white/90 p-6 shadow-xs hover-lift transition-all duration-300 backdrop-blur-md hover:border-blue-300"
+              className="group app-glass-card p-6 flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between">

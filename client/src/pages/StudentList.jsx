@@ -274,7 +274,7 @@ function StudentList() {
       )}
 
       {/* Top Action & Filter Toolbar */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      <div className="app-glass-toolbar p-5 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-3">
@@ -405,7 +405,7 @@ function StudentList() {
       </div>
 
       {/* Student List Table */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="app-glass-table overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-400 font-bold">
             Loading student master list...
@@ -493,8 +493,8 @@ function StudentList() {
 
       {/* SINGLE STUDENT ADD / EDIT MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-hero-fade-in">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-5">
+        <div className="app-glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-hero-fade-in">
+          <div className="app-glass-modal w-full max-w-lg p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-black text-slate-950 font-sans">
                 {editingStudent ? "Edit Student Record" : "Add New Student"}
@@ -599,8 +599,8 @@ function StudentList() {
 
       {/* BULK CSV IMPORT MODAL */}
       {isBulkModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-hero-fade-in">
-          <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="app-glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-hero-fade-in">
+          <div className="app-glass-modal w-full max-w-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-lg font-black text-slate-950 font-sans">

@@ -248,7 +248,7 @@ function CreatePoster() {
       </nav>
 
       {/* Page Hero */}
-      <div className="rounded-3xl border border-blue-100/80 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 p-7 shadow-xs lg:p-9 animate-hero-fade-in">
+      <div className="app-glass-hero p-7 lg:p-9 animate-hero-fade-in">
         <span className="text-xs font-black uppercase tracking-widest text-blue-600">
           DESIGN & DOCUMENT CREATOR
         </span>
@@ -262,7 +262,7 @@ function CreatePoster() {
 
       {/* Full-Width Form Section */}
       <form
-        className="rounded-3xl border border-slate-200/90 bg-white/90 p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-8"
+        className="app-glass-surface-strong p-6 sm:p-8 space-y-8"
         onSubmit={(e) => e.preventDefault()}
       >
         {/* Section A: Event Information */}
@@ -594,7 +594,7 @@ function CreatePoster() {
       </form>
 
       {/* Live Poster Preview Section Below Form */}
-      <section className="rounded-3xl border border-slate-200/90 bg-slate-100/70 p-6 sm:p-8 shadow-xl space-y-6">
+      <section className="app-glass-surface p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
           <div>
             <span className="text-xs font-black uppercase tracking-wider text-blue-600">LIVE POSTER CANVAS</span>

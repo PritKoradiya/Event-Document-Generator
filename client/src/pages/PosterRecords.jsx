@@ -141,7 +141,7 @@ function PosterRecords() {
       )}
 
       {/* Search & Filter Toolbar */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-md backdrop-blur-xl">
+      <div className="app-glass-toolbar p-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <input
             type="text"
@@ -203,7 +203,7 @@ function PosterRecords() {
           </div>
         </div>
       ) : posters.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-12 text-center shadow-xs">
+        <div className="app-glass-surface p-12 text-center shadow-xs">
           <span className="text-4xl block mb-3">🎨</span>
           <h3 className="text-xl font-black text-slate-950 font-sans">No poster records found.</h3>
           <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
@@ -218,7 +218,7 @@ function PosterRecords() {
           </Link>
         </div>
       ) : (
-        <div className="rounded-3xl border border-slate-200/90 bg-white/90 shadow-xl overflow-hidden backdrop-blur-md">
+        <div className="app-glass-table overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead>

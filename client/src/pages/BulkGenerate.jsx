@@ -404,7 +404,7 @@ function BulkGenerate() {
       </nav>
 
       {/* Page Hero */}
-      <div className="rounded-3xl border border-blue-100/80 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 p-7 shadow-xs lg:p-9 animate-hero-fade-in">
+      <div className="app-glass-hero p-7 lg:p-9 animate-hero-fade-in">
         <span className="text-xs font-black uppercase tracking-widest text-blue-600">
           BULK STUDIO WORKSPACE
         </span>
@@ -418,7 +418,7 @@ function BulkGenerate() {
         {/* Workspace Phases Strip */}
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {workflowPhases.map((phase) => (
-            <div key={phase.title} className="rounded-2xl border border-slate-200/80 bg-white/90 p-3.5 shadow-xs flex items-center gap-3">
+            <div key={phase.title} className="app-glass-panel p-3.5 flex items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg">
                 {phase.icon}
               </span>
@@ -434,7 +434,7 @@ function BulkGenerate() {
       {/* Phase 1: Participant Input Options */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Option A: Manual Roster */}
-        <div className="rounded-3xl border border-slate-200/90 bg-white/90 p-6 shadow-xl backdrop-blur-md space-y-4">
+        <div className="app-glass-surface-strong p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <span className="text-xs font-black uppercase tracking-wider text-blue-600">Option A</span>
             <span className="text-xs font-bold text-slate-400">One Name Per Line</span>
@@ -458,7 +458,7 @@ function BulkGenerate() {
         </div>
 
         {/* Option B: CSV Upload Dropzone */}
-        <div className="rounded-3xl border border-slate-200/90 bg-white/90 p-6 shadow-xl backdrop-blur-md space-y-4 flex flex-col justify-between">
+        <div className="app-glass-surface-strong p-6 space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
               <span className="text-xs font-black uppercase tracking-wider text-blue-600">Option B</span>
@@ -604,7 +604,7 @@ function BulkGenerate() {
       {/* Phase 2 & Live Sample Preview Grid */}
       <div className="grid gap-6 lg:grid-cols-[1fr_440px]">
         {/* Form for Common Details */}
-        <form className="rounded-3xl border border-slate-200/90 bg-white/90 p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-5" onSubmit={(e) => e.preventDefault()}>
+        <form className="app-glass-surface-strong p-6 sm:p-8 space-y-5" onSubmit={(e) => e.preventDefault()}>
           <div className="border-b border-slate-100 pb-3">
             <span className="text-xs font-black uppercase tracking-wider text-blue-600">Common Roster Details</span>
             <h3 className="text-lg font-black text-slate-950 font-sans">Batch Certificate Form</h3>

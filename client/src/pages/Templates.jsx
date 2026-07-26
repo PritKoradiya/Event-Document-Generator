@@ -266,7 +266,7 @@ function Templates() {
       </nav>
 
       {/* Page Hero */}
-      <div className="rounded-3xl border border-blue-100/80 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 p-7 shadow-xs lg:p-9 animate-hero-fade-in">
+      <div className="app-glass-hero p-7 lg:p-9 animate-hero-fade-in">
         <span className="text-xs font-black uppercase tracking-widest text-blue-600">
           TEMPLATE MARKETPLACE
         </span>
@@ -279,7 +279,7 @@ function Templates() {
       </div>
 
       {/* FIXED/STICKY FILTER NAVBAR (PART 1 FIX: Normal flow on mobile, lg:sticky lg:top-24 z-30) */}
-      <div className="relative top-auto lg:sticky lg:top-24 z-30 mb-8 rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-lg backdrop-blur-xl transition-all">
+      <div className="app-glass-toolbar relative top-auto lg:sticky lg:top-24 z-30 mb-8 p-4 transition-all">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           {/* Tabs */}
           <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 w-full lg:w-auto">
@@ -350,7 +350,7 @@ function Templates() {
         {filteredItems.map((item) => (
           <div
             key={item.id}
-            className="group relative flex flex-col justify-between rounded-3xl border border-slate-200/90 bg-white/90 p-5 shadow-xs hover-lift transition-all duration-300 backdrop-blur-md hover:border-blue-300"
+            className="group app-glass-card p-5 flex flex-col justify-between"
           >
             <div>
               {activeTab === "certificate" ? (

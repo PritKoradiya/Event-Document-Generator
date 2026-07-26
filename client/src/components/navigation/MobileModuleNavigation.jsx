@@ -52,7 +52,7 @@ function MobileModuleNavigation({ module = "certificate" }) {
   return (
     <div className="lg:hidden w-full mb-4 relative z-40">
       {/* Mobile Top Bar */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-950/85 p-3 shadow-xl backdrop-blur-xl">
+      <div className="app-glass-sidebar flex items-center justify-between gap-3 p-3 transition-all">
         <div className="flex items-center gap-2.5">
           <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${badgeBg} text-white font-black text-xs shadow-sm`}>
             {badgeText}

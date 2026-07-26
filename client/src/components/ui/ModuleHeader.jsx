@@ -26,7 +26,7 @@ function ModuleHeader({
   }
 
   return (
-    <header className="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200/80 bg-white/85 p-4 shadow-sm backdrop-blur-xl transition-all">
+    <header className="app-glass-toolbar sticky top-0 z-30 mb-6 p-4 transition-all">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Left Branding */}
         <div className="flex items-center gap-3.5">

@@ -323,7 +323,7 @@ function EventReports() {
       )}
 
       {/* Search & Filter Toolbar */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-md backdrop-blur-xl">
+      <div className="app-glass-toolbar p-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <input
             type="text"
@@ -374,7 +374,7 @@ function EventReports() {
           </div>
         </div>
       ) : reports.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-12 text-center shadow-xs">
+        <div className="app-glass-surface p-12 text-center shadow-xs">
           <span className="text-4xl block mb-3">📋</span>
           <h3 className="text-xl font-black text-slate-950 font-sans">No event reports found.</h3>
           <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
@@ -389,7 +389,7 @@ function EventReports() {
           </Link>
         </div>
       ) : (
-        <div className="rounded-3xl border border-slate-200/90 bg-white/90 shadow-xl overflow-hidden backdrop-blur-md">
+        <div className="app-glass-table overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead>
@@ -490,8 +490,8 @@ function EventReports() {
 
       {/* Edit Event Report Modal Overlay */}
       {isEditing && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-100 max-h-[90vh] flex flex-col">
+        <div className="app-glass-modal-overlay fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+          <div className="app-glass-modal w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black text-slate-950">Edit Event Report</h3>

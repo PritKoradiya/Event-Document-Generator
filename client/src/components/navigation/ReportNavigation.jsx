@@ -40,7 +40,7 @@ function ReportNavigation() {
         isCollapsed ? "w-20" : "w-64"
       }`}
     >
-      <div className="flex flex-col gap-2 rounded-3xl border border-purple-500/25 bg-slate-950/85 p-3.5 shadow-2xl shadow-purple-950/50 backdrop-blur-xl transition-all">
+      <div className="app-glass-sidebar flex flex-col gap-2 p-3.5 transition-all">
         {/* Rail Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/80 mb-1">
           {!isCollapsed && (

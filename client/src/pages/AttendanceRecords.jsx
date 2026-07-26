@@ -189,7 +189,7 @@ function AttendanceRecords() {
       )}
 
       {/* Filter Toolbar */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+      <div className="app-glass-toolbar p-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <div>
             <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
@@ -254,7 +254,7 @@ function AttendanceRecords() {
           Loading saved attendance records...
         </div>
       ) : filteredSheets.length === 0 ? (
-        <div className="p-12 text-center space-y-3 bg-white rounded-3xl border border-slate-200">
+        <div className="app-glass-surface p-12 text-center space-y-3">
           <span className="text-4xl">📁</span>
           <h3 className="text-lg font-black text-slate-800">No attendance sheets found</h3>
           <p className="text-xs font-medium text-slate-500 max-w-md mx-auto">
@@ -266,7 +266,7 @@ function AttendanceRecords() {
           {filteredSheets.map((sheet) => (
             <div
               key={sheet.id}
-              className="group relative flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-teal-300 hover:shadow-xl"
+              className="group app-glass-card p-6 flex flex-col justify-between"
             >
               <div>
                 {/* Header Tag */}
@@ -387,8 +387,8 @@ function AttendanceRecords() {
 
       {/* VIEW ATTENDANCE PREVIEW MODAL */}
       {activeSheetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md overflow-y-auto animate-hero-fade-in">
-          <div className="w-full max-w-4xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[95vh] overflow-y-auto">
+        <div className="app-glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto animate-hero-fade-in">
+          <div className="app-glass-modal w-full max-w-4xl p-6 space-y-4 max-h-[95vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-lg font-black text-slate-950 font-sans">

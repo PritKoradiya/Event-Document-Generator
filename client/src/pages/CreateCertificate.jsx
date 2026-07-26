@@ -209,7 +209,7 @@ function CreateCertificate() {
       </nav>
 
       {/* Page Header */}
-      <div className="rounded-3xl border border-blue-100/80 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 p-7 shadow-xs lg:p-9 animate-hero-fade-in">
+      <div className="app-glass-hero p-7 lg:p-9 animate-hero-fade-in">
         <span className="text-xs font-black uppercase tracking-widest text-blue-600">
           STUDIO BUILDER
         </span>
@@ -223,7 +223,7 @@ function CreateCertificate() {
 
       {/* Main Form Section */}
       <form
-        className="rounded-3xl border border-slate-200/90 bg-white/90 p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-8"
+        className="app-glass-surface-strong p-6 sm:p-8 space-y-8"
         onSubmit={(event) => event.preventDefault()}
       >
         {/* Section 1: Participant Information */}
@@ -425,9 +425,9 @@ function CreateCertificate() {
       </form>
 
       {/* Certificate Live Preview Block */}
-      <section className="rounded-3xl border border-slate-200/90 bg-white/90 p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-6">
+      <section className="app-glass-surface p-6 sm:p-8 space-y-6">
         {/* Preview Toolbar */}
-        <div className="sticky top-20 z-20 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-md backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+        <div className="app-glass-toolbar sticky top-20 z-20 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
