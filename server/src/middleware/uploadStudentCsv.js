@@ -1,9 +1,12 @@
 import multer from "multer";
+import path from "path";
 
 const allowedCsvMimeTypes = new Set([
   "text/csv",
   "application/csv",
-  "application/vnd.ms-excel"
+  "application/vnd.ms-excel",
+  "application/octet-stream",
+  "text/plain"
 ]);
 
 const uploadStudentCsv = multer({
@@ -12,7 +15,9 @@ const uploadStudentCsv = multer({
     fileSize: 2 * 1024 * 1024
   },
   fileFilter: (req, file, callback) => {
-    if (allowedCsvMimeTypes.has(file.mimetype)) {
+    const hasCsvExtension = path.extname(file.originalname).toLowerCase() === ".csv";
+
+    if (hasCsvExtension && allowedCsvMimeTypes.has(file.mimetype)) {
       return callback(null, true);
     }
 

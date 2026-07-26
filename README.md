@@ -163,6 +163,50 @@ The Attendance Sheet Generator manages reusable student records and generates st
 
 ---
 
+## Backend Setup and Deployment
+
+Create `server/.env` from `server/.env.example` and configure:
+
+```env
+PORT=5000
+MONGO_URI=your_mongodb_connection_string
+CLIENT_URL=http://localhost:5173
+CLIENT_URLS=http://localhost:5173,https://your-frontend-domain.vercel.app
+NODE_ENV=development
+```
+
+`MONGO_URI` is required. Use `CLIENT_URLS` for a comma-separated list of allowed
+frontend origins in production; `CLIENT_URL` remains supported for a single
+frontend origin.
+
+Run the backend locally:
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+Run the backend in production:
+
+```bash
+cd server
+npm start
+```
+
+The public health endpoint is:
+
+```txt
+/api/health
+```
+
+For deployment, configure `MONGO_URI`, configure `CLIENT_URLS` with the deployed
+frontend origin, and set `NODE_ENV=production`. Uploaded local files may not
+persist on hosting services that use temporary or ephemeral filesystems; use
+persistent object storage when deployed uploads must survive restarts.
+
+---
+
 ## Folder Structure
 
 ```txt

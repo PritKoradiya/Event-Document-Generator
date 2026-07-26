@@ -646,8 +646,8 @@ function CreatePoster() {
         </div>
       </section>
 
-      {/* Development QA Test Panel */}
-      <PosterSvgTestPanel />
+      {/* DEV-ONLY SVG CANVAS DIAGNOSTICS & HARD TEST PANEL */}
+      {import.meta.env.DEV && <PosterSvgTestPanel />}
     </section>
   );
 }

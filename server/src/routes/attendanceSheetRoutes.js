@@ -9,8 +9,11 @@ import {
   saveDraftAttendanceSheet,
   updateAttendanceSheet
 } from "../controllers/attendanceSheetController.js";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 
 router.post("/draft", saveDraftAttendanceSheet);
 router.post("/", createAttendanceSheet);

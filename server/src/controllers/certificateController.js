@@ -311,7 +311,8 @@ export const deleteCertificate = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Certificate deleted successfully"
+      message: "Certificate deleted successfully",
+      data: deletedCertificate
     });
   } catch (error) {
     return res.status(500).json({

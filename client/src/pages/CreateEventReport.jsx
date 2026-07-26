@@ -598,7 +598,7 @@ function CreateEventReport() {
       </section>
 
       {/* Development QA Panel */}
-      <EventReportPdfTestPanel />
+      {import.meta.env.DEV && <EventReportPdfTestPanel />}
     </section>
   );
 }

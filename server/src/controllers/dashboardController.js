@@ -3,6 +3,7 @@ import AttendanceSheet from "../models/AttendanceSheet.js";
 import AttendanceStudent from "../models/AttendanceStudent.js";
 import Certificate from "../models/Certificate.js";
 import EventReport from "../models/EventReport.js";
+import Poster from "../models/Poster.js";
 
 const isDatabaseConnected = () => mongoose.connection.readyState === 1;
 
@@ -21,6 +22,9 @@ export const getDashboardStats = async (req, res) => {
       draftCertificates,
       singleCertificates,
       bulkCertificates,
+      totalPosters,
+      generatedPosters,
+      draftPosters,
       totalEventReports,
       generatedEventReports,
       draftEventReports,
@@ -35,6 +39,9 @@ export const getDashboardStats = async (req, res) => {
       Certificate.countDocuments({ status: "Draft" }),
       Certificate.countDocuments({ generationType: "Single" }),
       Certificate.countDocuments({ generationType: "Bulk" }),
+      Poster.countDocuments(),
+      Poster.countDocuments({ status: "Generated" }),
+      Poster.countDocuments({ status: "Draft" }),
       EventReport.countDocuments(),
       EventReport.countDocuments({ status: "Generated" }),
       EventReport.countDocuments({ status: "Draft" }),
@@ -47,6 +54,7 @@ export const getDashboardStats = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: "Dashboard statistics fetched successfully",
       data: {
         certificates: {
           total: totalCertificates,
@@ -54,6 +62,11 @@ export const getDashboardStats = async (req, res) => {
           draft: draftCertificates,
           single: singleCertificates,
           bulk: bulkCertificates
+        },
+        posters: {
+          total: totalPosters,
+          generated: generatedPosters,
+          draft: draftPosters
         },
         eventReports: {
           total: totalEventReports,
@@ -72,7 +85,7 @@ export const getDashboardStats = async (req, res) => {
         platform: {
           certificateTemplates: 24,
           posterDesigns: 12,
-          modules: 3
+          modules: 4
         }
       }
     });

@@ -1,5 +1,7 @@
+import { nodeEnv } from "../config/env.js";
+
 export const getHealthStatus = (req, res) => {
-  res.status(200).json({
+  return res.status(200).json({
     success: true,
     message: "Event Document Generator API is running",
     projectName: "Event Document Generator",
@@ -9,6 +11,6 @@ export const getHealthStatus = (req, res) => {
       "Event Report Generator",
       "Attendance Sheet Generator"
     ],
-    environment: process.env.NODE_ENV || "development"
+    environment: nodeEnv
   });
 };

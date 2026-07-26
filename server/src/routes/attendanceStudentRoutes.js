@@ -10,8 +10,11 @@ import {
   updateStudent
 } from "../controllers/attendanceStudentController.js";
 import uploadStudentCsv from "../middleware/uploadStudentCsv.js";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 
 router.get("/csv-template", downloadStudentCsvTemplate);
 router.post("/import-csv", uploadStudentCsv, importStudentsFromCsv);

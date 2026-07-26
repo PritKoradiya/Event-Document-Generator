@@ -8,8 +8,11 @@ import {
   saveDraftCertificate,
   updateCertificate
 } from "../controllers/certificateController.js";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 
 router.post("/draft", saveDraftCertificate);
 router.post("/bulk", bulkCreateCertificates);

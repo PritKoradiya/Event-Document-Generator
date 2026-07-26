@@ -5,8 +5,8 @@ function EmptyState({
   action
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white/80 p-12 text-center shadow-sm backdrop-blur-md">
-      <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-3xl mb-4 shadow-xs">
+    <div className="app-glass-surface flex flex-col items-center justify-center p-12 text-center">
+      <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/80 text-3xl mb-4 shadow-sm border border-slate-200/60">
         {icon}
       </span>
       <h3 className="text-xl font-black text-slate-950 font-sans tracking-tight">

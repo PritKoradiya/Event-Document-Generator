@@ -2,6 +2,7 @@ import { unlink } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
+import { isDevelopment } from "../config/env.js";
 import Poster from "../models/Poster.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -69,8 +70,8 @@ const deleteUploadedAsset = async (assetPath) => {
   try {
     await unlink(localFilePath);
   } catch (error) {
-    if (error.code !== "ENOENT") {
-      console.error(`Unable to delete uploaded poster asset: ${localFilePath}`, error.message);
+    if (error.code !== "ENOENT" && isDevelopment) {
+      console.error(`Unable to delete uploaded poster asset ${fileName}:`, error.message);
     }
   }
 };
@@ -324,7 +325,8 @@ export const deletePoster = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Poster deleted successfully"
+      message: "Poster deleted successfully",
+      data: existingPoster
     });
   } catch (error) {
     return res.status(500).json({

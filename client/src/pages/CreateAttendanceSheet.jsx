@@ -239,21 +239,23 @@ function CreateAttendanceSheet() {
       />
 
       {/* DEV-ONLY TYPOGRAPHY & LAYOUT CALIBRATION TEST PANEL (Part 17) */}
-      <AttendanceTypographyTestPanel
-        onLoadTestScenario={({ department: d, className: c, heading: h, students: s }) => {
-          setDepartment(d);
-          setClassName(c);
-          setHeading(h);
-          setMatchingStudents(s);
-          setGeneratedSheet(null);
-        }}
-        onTriggerDirectPdf={async (testSheet) => {
-          await downloadAttendanceSheetPdf({
-            sheet: testSheet,
-            fileName: `Test_Attendance_Sheet_${testSheet.students.length}_Students.pdf`
-          });
-        }}
-      />
+      {import.meta.env.DEV && (
+        <AttendanceTypographyTestPanel
+          onLoadTestScenario={({ department: d, className: c, heading: h, students: s }) => {
+            setDepartment(d);
+            setClassName(c);
+            setHeading(h);
+            setMatchingStudents(s);
+            setGeneratedSheet(null);
+          }}
+          onTriggerDirectPdf={async (testSheet) => {
+            await downloadAttendanceSheetPdf({
+              sheet: testSheet,
+              fileName: `Test_Attendance_Sheet_${testSheet.students.length}_Students.pdf`
+            });
+          }}
+        />
+      )}
 
       {/* Main Form Box */}
       <div className="app-glass-surface-strong p-6 sm:p-8 space-y-6 max-w-5xl mx-auto">

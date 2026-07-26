@@ -2,6 +2,7 @@ import { unlink } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
+import { isDevelopment } from "../config/env.js";
 import EventReport from "../models/EventReport.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +59,11 @@ const getUploadedPhotoPaths = (files = []) => {
   return files.map((file) => `/uploads/event-reports/${file.filename}`);
 };
 
+const isManagedReportPhoto = (photoPath) => {
+  return typeof photoPath === "string"
+    && photoPath === `/uploads/event-reports/${path.basename(photoPath)}`;
+};
+
 const removeEmptyArrayItems = (values) => {
   return values.map((value) => String(value).trim()).filter(Boolean);
 };
@@ -95,15 +101,19 @@ const deleteUploadedFile = async (photoPath) => {
   try {
     await unlink(localFilePath);
   } catch (error) {
-    if (error.code !== "ENOENT") {
-      console.error(`Unable to delete uploaded report photo: ${localFilePath}`, error.message);
+    if (error.code !== "ENOENT" && isDevelopment) {
+      console.error(`Unable to delete uploaded report photo ${fileName}:`, error.message);
     }
   }
 };
 
+const removeUploadedRequestPhotos = async (files = []) => {
+  await Promise.all(getUploadedPhotoPaths(files).map(deleteUploadedFile));
+};
+
 const buildReportPhotos = (files, bodyPhotos) => {
   const uploadedPhotos = getUploadedPhotoPaths(files);
-  const savedPhotoPaths = parseArrayField(bodyPhotos);
+  const savedPhotoPaths = parseArrayField(bodyPhotos).filter(isManagedReportPhoto);
 
   return [...new Set([...uploadedPhotos, ...savedPhotoPaths])].slice(0, 4);
 };
@@ -111,12 +121,14 @@ const buildReportPhotos = (files, bodyPhotos) => {
 export const createEventReport = async (req, res) => {
   try {
     if (!isDatabaseConnected()) {
+      await removeUploadedRequestPhotos(req.files);
       return databaseUnavailableResponse(res);
     }
 
     const missingFields = requiredFields.filter((field) => isMissingRequiredValue(req.body[field]));
 
     if (missingFields.length > 0) {
+      await removeUploadedRequestPhotos(req.files);
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missingFields.join(", ")}`
@@ -139,6 +151,7 @@ export const createEventReport = async (req, res) => {
       data: eventReport
     });
   } catch (error) {
+    await removeUploadedRequestPhotos(req.files);
     return res.status(500).json({
       success: false,
       message: "Failed to create event report"
@@ -149,6 +162,7 @@ export const createEventReport = async (req, res) => {
 export const saveDraftEventReport = async (req, res) => {
   try {
     if (!isDatabaseConnected()) {
+      await removeUploadedRequestPhotos(req.files);
       return databaseUnavailableResponse(res);
     }
 
@@ -168,6 +182,7 @@ export const saveDraftEventReport = async (req, res) => {
       data: eventReport
     });
   } catch (error) {
+    await removeUploadedRequestPhotos(req.files);
     return res.status(500).json({
       success: false,
       message: "Failed to save event report draft"
@@ -227,12 +242,14 @@ export const getEventReportById = async (req, res) => {
 export const updateEventReport = async (req, res) => {
   try {
     if (!isDatabaseConnected()) {
+      await removeUploadedRequestPhotos(req.files);
       return databaseUnavailableResponse(res);
     }
 
     const existingEventReport = await EventReport.findById(req.params.id);
 
     if (!existingEventReport) {
+      await removeUploadedRequestPhotos(req.files);
       return res.status(404).json({
         success: false,
         message: "Event report not found"
@@ -284,6 +301,7 @@ export const updateEventReport = async (req, res) => {
       data: updatedEventReport
     });
   } catch (error) {
+    await removeUploadedRequestPhotos(req.files);
     return res.status(500).json({
       success: false,
       message: "Failed to update event report"
@@ -315,7 +333,8 @@ export const deleteEventReport = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Event report deleted successfully"
+      message: "Event report deleted successfully",
+      data: existingEventReport
     });
   } catch (error) {
     return res.status(500).json({

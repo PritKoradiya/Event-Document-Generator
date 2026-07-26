@@ -8,8 +8,11 @@ import {
   updatePoster
 } from "../controllers/posterController.js";
 import uploadPosterAssets from "../middleware/uploadPosterAssets.js";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 
 router.post("/draft", uploadPosterAssets, saveDraftPoster);
 router.post("/", uploadPosterAssets, createPoster);

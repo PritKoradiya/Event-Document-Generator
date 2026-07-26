@@ -8,8 +8,11 @@ import {
   updateEventReport
 } from "../controllers/eventReportController.js";
 import uploadReportPhotos from "../middleware/uploadReportPhotos.js";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 
 router.post("/draft", uploadReportPhotos.array("photos", 4), saveDraftEventReport);
 router.post("/", uploadReportPhotos.array("photos", 4), createEventReport);

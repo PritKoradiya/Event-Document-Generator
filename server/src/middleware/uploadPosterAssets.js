@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+import { mkdirSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
@@ -5,6 +7,8 @@ import multer from "multer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadDirectory = path.join(__dirname, "../../uploads/posters");
+
+mkdirSync(uploadDirectory, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, callback) => {
@@ -18,8 +22,7 @@ const storage = multer.diskStorage({
       "image/webp": ".webp"
     };
     const extension = extensionsByMimeType[file.mimetype];
-    const randomNumber = Math.round(Math.random() * 1_000_000_000);
-    const fileName = `poster-asset-${Date.now()}-${randomNumber}${extension}`;
+    const fileName = `poster-asset-${Date.now()}-${randomUUID()}${extension}`;
 
     callback(null, fileName);
   }
@@ -32,7 +35,9 @@ const fileFilter = (req, file, callback) => {
     return callback(null, true);
   }
 
-  return callback(new Error("Only JPG, PNG, and WebP images are allowed."));
+  const error = new Error("Only JPG, PNG, and WebP images are allowed.");
+  error.status = 400;
+  return callback(error);
 };
 
 const uploadPosterAssets = multer({

@@ -196,8 +196,8 @@ function CreateCertificate() {
 
   return (
     <section className="space-y-8 pb-10">
-      {/* DEV-Only Pure SVG Test Suite Panel */}
-      <CertificateSvgTestPanel />
+      {/* Development QA Test Panel */}
+      {import.meta.env.DEV && <CertificateSvgTestPanel />}
 
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
