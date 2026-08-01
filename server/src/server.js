@@ -30,9 +30,10 @@ const startServer = async () => {
     validateEnvironment();
     await connectDB();
 
-    server = app.listen(port, () => {
-      console.log(`Server is running on port ${port}`);
-    });
+    server = app.listen(port, "0.0.0.0", () => {
+  console.log(`Server is running on port ${port}`);
+});
+
   } catch (error) {
     console.error(`Startup error: ${error.message}`);
     process.exit(1);
