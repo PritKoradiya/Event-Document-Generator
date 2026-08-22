@@ -214,21 +214,16 @@ function CertificateDashboard() {
                   <p className="text-[9px] text-slate-300 font-medium">for successful participation in the International Technology Event</p>
                 </div>
 
-                {/* Footer Signatures & Certificate ID */}
+                {/* Footer Signatures (Clean dynamic placeholders) */}
                 <div className="flex items-end justify-between pt-2 border-t border-slate-800">
                   <div className="space-y-1 text-center">
                     <div className="h-0.5 w-16 bg-slate-600 mx-auto" />
-                    <p className="text-[8px] font-bold text-slate-300 uppercase">Authorized Person</p>
-                  </div>
-
-                  <div className="text-center font-mono text-[9px] text-slate-400 font-bold">
-                    CERT-2026-0001
+                    <p className="text-[8px] font-bold text-slate-300 uppercase">Signature 1</p>
                   </div>
 
                   <div className="space-y-1 text-center">
                     <div className="h-0.5 w-16 bg-slate-600 mx-auto" />
-                    <p className="text-[8px] font-bold text-slate-300 uppercase">Dr. Niraj Shah</p>
-                    <p className="text-[7px] font-bold text-slate-400 uppercase">Dean, SOE</p>
+                    <p className="text-[8px] font-bold text-slate-300 uppercase">Signature 2</p>
                   </div>
                 </div>
               </div>

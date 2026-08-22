@@ -19,21 +19,23 @@ const CertificateSvg = forwardRef(function CertificateSvg(
     participantName = "Pritkumar Koradiya",
     organizationName = "School of Engineering, PP Savani University",
     eventName = "International Tech Summit 2026",
-    certificateCategory = "Seminar",
+    certificateCategory = "",
+    category = "",
     certificateTitle = "Certificate of Participation",
     eventDate = "2026-08-15",
     description = "for successfully attending and participating in the technical sessions and workshops.",
     templateStyle = "Classic Certificate",
-    certificateId = "CERT-2026-0001",
-    authorizedSignatureName = "Authorized Person",
-    authorizedSignatureMode = "blank",
-    authorizedSignatureImage = null,
-    drSignatureName = "Dr. Niraj Shah",
-    drSignatureMode = "blank",
-    drSignatureImage = null,
-    deanName,
-    signatureLayout = "both",
+    certificateId = "",
+    signatureBoxes = null,
     singleSignaturePosition = "center",
+    authorizedSignatureName,
+    authorizedSignatureMode,
+    authorizedSignatureImage,
+    drSignatureName,
+    drSignatureMode,
+    drSignatureImage,
+    deanName,
+    signatureLayout,
     designKey = "",
     backgroundImage = "",
     backgroundMode = "stretch"
@@ -79,10 +81,13 @@ const CertificateSvg = forwardRef(function CertificateSvg(
         organizationName={organizationName}
         eventName={eventName}
         certificateCategory={certificateCategory}
+        category={category}
         certificateTitle={certificateTitle}
         eventDate={eventDate}
         description={description}
         certificateId={certificateId}
+        signatureBoxes={signatureBoxes}
+        singleSignaturePosition={singleSignaturePosition}
         authorizedSignatureName={authorizedSignatureName}
         authorizedSignatureMode={authorizedSignatureMode}
         authorizedSignatureImage={authorizedSignatureImage}
@@ -91,7 +96,6 @@ const CertificateSvg = forwardRef(function CertificateSvg(
         drSignatureImage={drSignatureImage}
         deanName={deanName}
         signatureLayout={signatureLayout}
-        singleSignaturePosition={singleSignaturePosition}
         theme={mergedTemplate.theme || {}}
       />
     </svg>

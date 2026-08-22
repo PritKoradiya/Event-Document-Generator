@@ -10,20 +10,22 @@ function CertificateContentLayout({
   participantName = "Pritkumar Koradiya",
   organizationName = "School of Engineering, PP Savani University",
   eventName = "International Tech Summit 2026",
-  certificateCategory = "Seminar",
+  certificateCategory = "",
+  category = "",
   certificateTitle = "Certificate of Participation",
   eventDate = "2026-08-15",
   description = "for successfully attending and participating in the technical sessions and workshops.",
-  certificateId = "CERT-2026-0001",
-  authorizedSignatureName = "Authorized Person",
-  authorizedSignatureMode = "blank",
-  authorizedSignatureImage = null,
-  drSignatureName = "Dr. Niraj Shah",
-  drSignatureMode = "blank",
-  drSignatureImage = null,
-  deanName,
-  signatureLayout = "both",
+  certificateId = "",
+  signatureBoxes = null,
   singleSignaturePosition = "center",
+  drSignatureName,
+  drSignatureMode,
+  drSignatureImage,
+  authorizedSignatureName,
+  authorizedSignatureMode,
+  authorizedSignatureImage,
+  signatureLayout,
+  deanName,
   isDarkTheme = false,
   themeColors = {}
 }) {
@@ -38,16 +40,52 @@ function CertificateContentLayout({
   const titleStyle = getCertificateTitleSize(certificateTitle);
   const descStyle = getDescriptionSize(description);
 
-  const resolvedAuthorizedName = authorizedSignatureName || "Authorized Person";
-  const resolvedAuthorizedMode = authorizedSignatureMode || "blank";
-  const resolvedAuthorizedImage = authorizedSignatureImage || null;
-
-  const resolvedDrName = drSignatureName || deanName || "Dr. Niraj Shah";
-  const resolvedDrMode = drSignatureMode || "blank";
-  const resolvedDrImage = drSignatureImage || null;
-
-  const resolvedLayout = signatureLayout || "both";
+  const displayCategory = (certificateCategory || category || "").trim();
   const resolvedPosition = singleSignaturePosition || "center";
+
+  // Resolve signature boxes
+  const boxes = (() => {
+    if (Array.isArray(signatureBoxes)) {
+      return signatureBoxes;
+    }
+    if (signatureLayout === "dr-only") {
+      return [
+        {
+          signerName: drSignatureName || deanName || "Dr. Niraj Shah",
+          signerDesignation: "Dean, SOE",
+          signatureMode: drSignatureMode || "blank",
+          signatureImage: drSignatureImage || null
+        }
+      ];
+    }
+    if (signatureLayout === "authorized-only") {
+      return [
+        {
+          signerName: authorizedSignatureName || "Authorized Person",
+          signerDesignation: "Authorized Signature",
+          signatureMode: authorizedSignatureMode || "blank",
+          signatureImage: authorizedSignatureImage || null
+        }
+      ];
+    }
+    if (signatureLayout === "both") {
+      return [
+        {
+          signerName: authorizedSignatureName || "Authorized Person",
+          signerDesignation: "Authorized Signature",
+          signatureMode: authorizedSignatureMode || "blank",
+          signatureImage: authorizedSignatureImage || null
+        },
+        {
+          signerName: drSignatureName || deanName || "Dr. Niraj Shah",
+          signerDesignation: "Dean, SOE",
+          signatureMode: drSignatureMode || "blank",
+          signatureImage: drSignatureImage || null
+        }
+      ];
+    }
+    return [];
+  })();
 
   const formattedDate = eventDate
     ? new Date(eventDate).toLocaleDateString("en-US", {
@@ -67,14 +105,14 @@ function CertificateContentLayout({
         paddingRight: "110px"
       }}
     >
-      {/* ROW 1: HEADER SECTION (22% Height) */}
+      {/* ROW 1: HEADER SECTION */}
       <div className="flex flex-col items-center justify-center text-center">
-        {certificateCategory && (
+        {displayCategory && (
           <span
             className="text-[19px] font-black uppercase tracking-[0.3em] mb-2"
             style={{ color: accentColor }}
           >
-            {certificateCategory}
+            {displayCategory.toUpperCase()}
           </span>
         )}
 
@@ -96,7 +134,7 @@ function CertificateContentLayout({
         </div>
       </div>
 
-      {/* ROW 2: RECIPIENT SECTION (38% Height) */}
+      {/* ROW 2: RECIPIENT SECTION */}
       <div className="flex flex-col items-center justify-center text-center my-auto">
         <p
           className="text-[20px] font-extrabold uppercase tracking-[0.2em] mb-2"
@@ -141,7 +179,7 @@ function CertificateContentLayout({
         )}
       </div>
 
-      {/* ROW 3: MESSAGE & DATE SECTION (18% Height) */}
+      {/* ROW 3: MESSAGE & DATE SECTION */}
       <div className="flex flex-col items-center justify-center text-center my-auto">
         {description && (
           <p
@@ -161,62 +199,36 @@ function CertificateContentLayout({
         </div>
       </div>
 
-      {/* ROW 4: FOOTER SECTION (NO SEAL) */}
-      <div className="flex items-end justify-between pt-4 border-t" style={{ borderColor: lineColor }}>
-        {/* Authorized Person Signature */}
-        {(resolvedLayout === "both" || resolvedLayout === "authorized-only") && (
-          <CertificateSignatureBlock
-            personName={resolvedAuthorizedName}
-            signatureMode={resolvedAuthorizedMode}
-            signatureImage={resolvedAuthorizedImage}
-            subtitle="Authorized Signature"
-            lineColor={primaryTextColor}
-            textColor={primaryTextColor}
-            subtitleColor={secondaryTextColor}
-            className={
-              resolvedLayout !== "both"
-                ? resolvedPosition === "left"
-                  ? "mr-auto"
-                  : resolvedPosition === "right"
-                  ? "ml-auto"
-                  : "mx-auto"
-                : ""
-            }
-          />
-        )}
-
-        {/* Center Certificate ID */}
-        <div className="flex flex-col items-center text-center justify-end mx-auto">
-          <span className="font-mono text-[16px] font-bold tracking-widest opacity-80" style={{ color: secondaryTextColor }}>
-            {certificateId}
-          </span>
+      {/* ROW 4: FOOTER SECTION (NO CERTIFICATE ID, NO SEAL) */}
+      {boxes.length > 0 && (
+        <div
+          className={`flex items-end pt-4 border-t ${
+            boxes.length === 1
+              ? resolvedPosition === "left"
+                ? "justify-start"
+                : resolvedPosition === "right"
+                ? "justify-end"
+                : "justify-center"
+              : "justify-between"
+          }`}
+          style={{ borderColor: lineColor }}
+        >
+          {boxes.map((box, index) => (
+            <CertificateSignatureBlock
+              key={index}
+              personName={box.signerName}
+              subtitle={box.signerDesignation}
+              signatureMode={box.signatureMode}
+              signatureImage={box.signatureImage}
+              lineColor={primaryTextColor}
+              textColor={primaryTextColor}
+              subtitleColor={secondaryTextColor}
+            />
+          ))}
         </div>
-
-        {/* Dr. Niraj Shah Signature */}
-        {(resolvedLayout === "both" || resolvedLayout === "dr-only") && (
-          <CertificateSignatureBlock
-            personName={resolvedDrName}
-            signatureMode={resolvedDrMode}
-            signatureImage={resolvedDrImage}
-            subtitle="Dean, SOE"
-            lineColor={primaryTextColor}
-            textColor={primaryTextColor}
-            subtitleColor={secondaryTextColor}
-            className={
-              resolvedLayout !== "both"
-                ? resolvedPosition === "left"
-                  ? "mr-auto"
-                  : resolvedPosition === "right"
-                  ? "ml-auto"
-                  : "mx-auto"
-                : ""
-            }
-          />
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
 export default CertificateContentLayout;
-

@@ -38,7 +38,16 @@ const requiredFields = [
 const signatureModes = ["blank", "image"];
 const signatureLayouts = ["dr-only", "authorized-only", "both"];
 const singleSignaturePositions = ["left", "center", "right"];
-const maxSignatureImageLength = 2 * 1024 * 1024;
+const maxSignatureImageBytes = 2 * 1024 * 1024;
+const legacySignatureFields = [
+  "drSignatureName",
+  "drSignatureMode",
+  "drSignatureImage",
+  "authorizedSignatureName",
+  "authorizedSignatureMode",
+  "authorizedSignatureImage",
+  "signatureLayout"
+];
 
 class SignatureConfigurationError extends Error {}
 
@@ -52,64 +61,137 @@ const getSignatureField = (source, existingCertificate, field, defaultValue) => 
   return existingCertificate?.[field] ?? defaultValue;
 };
 
-const validateSignatureImage = (image, mode, label) => {
+const getDataUrlByteLength = (image) => {
+  const [, base64Data] = image.split(",", 2);
+  return Math.floor((base64Data.length * 3) / 4) - (base64Data.endsWith("==") ? 2 : base64Data.endsWith("=") ? 1 : 0);
+};
+
+const validateSignatureImage = (image, mode) => {
   if (mode === "blank") {
+    if (image !== null && image !== undefined) {
+      throw new SignatureConfigurationError("Signature image must be null when signature mode is blank");
+    }
+
     return null;
   }
 
   if (typeof image !== "string" || image.trim().length === 0) {
-    throw new SignatureConfigurationError(`${label} signature image is required when signature mode is image`);
+    throw new SignatureConfigurationError("Signature image is required when signature mode is image");
   }
 
-  if (image.length > maxSignatureImageLength) {
-    throw new SignatureConfigurationError(`${label} signature image exceeds the 2 MB limit`);
+  const trimmedImage = image.trim();
+  const isImageDataUrl = /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(trimmedImage);
+  const isSafeImagePath = /^(https?:\/\/[^\s]+|\/uploads\/[^\s]+)$/i.test(trimmedImage);
+
+  if (!isImageDataUrl && !isSafeImagePath) {
+    throw new SignatureConfigurationError("Signature image must be a valid image data URL or safe image path");
+  }
+
+  if (isImageDataUrl && getDataUrlByteLength(trimmedImage) > maxSignatureImageBytes) {
+    throw new SignatureConfigurationError("Signature image is too large. Please use a smaller image.");
   }
 
   return image;
 };
 
+const validateSignatureBoxes = (signatureBoxes) => {
+  if (!Array.isArray(signatureBoxes)) {
+    throw new SignatureConfigurationError("signatureBoxes must be an array");
+  }
+
+  if (signatureBoxes.length > 3) {
+    throw new SignatureConfigurationError("Maximum 3 signature boxes are allowed");
+  }
+
+  return signatureBoxes.map((box) => {
+    if (!box || typeof box !== "object" || Array.isArray(box)) {
+      throw new SignatureConfigurationError("Each signature box must be an object");
+    }
+
+    const signerName = box.signerName ?? "";
+    const signerDesignation = box.signerDesignation ?? "";
+    const signatureMode = box.signatureMode ?? "blank";
+    const signatureImage = box.signatureImage ?? null;
+
+    if (typeof signerName !== "string" || typeof signerDesignation !== "string") {
+      throw new SignatureConfigurationError("Signer name and designation must be strings");
+    }
+
+    if (signerName.trim().length === 0 && signerDesignation.trim().length === 0) {
+      throw new SignatureConfigurationError("Signature box must contain a signer name or designation.");
+    }
+
+    if (!signatureModes.includes(signatureMode)) {
+      throw new SignatureConfigurationError("Invalid signature mode");
+    }
+
+    return {
+      signerName,
+      signerDesignation,
+      signatureMode,
+      signatureImage: validateSignatureImage(signatureImage, signatureMode)
+    };
+  });
+};
+
 const getSignatureConfiguration = (source = {}, existingCertificate = null) => {
+  const singleSignaturePosition = getSignatureField(source, existingCertificate, "singleSignaturePosition", "center");
+
+  if (!singleSignaturePositions.includes(singleSignaturePosition)) {
+    throw new SignatureConfigurationError("Invalid single signature position");
+  }
+
+  if (hasOwnProperty(source, "signatureBoxes")) {
+    return {
+      signatureBoxes: validateSignatureBoxes(source.signatureBoxes),
+      singleSignaturePosition
+    };
+  }
+
+  const includesLegacySignatureFields = legacySignatureFields.some((field) => hasOwnProperty(source, field));
+
+  if (!includesLegacySignatureFields && existingCertificate && Array.isArray(existingCertificate.signatureBoxes)) {
+    return {
+      signatureBoxes: existingCertificate.signatureBoxes,
+      singleSignaturePosition
+    };
+  }
+
   const drSignatureMode = getSignatureField(source, existingCertificate, "drSignatureMode", "blank");
   const authorizedSignatureMode = getSignatureField(source, existingCertificate, "authorizedSignatureMode", "blank");
   const signatureLayout = getSignatureField(source, existingCertificate, "signatureLayout", "both");
-  const singleSignaturePosition = getSignatureField(source, existingCertificate, "singleSignaturePosition", "center");
 
   if (!signatureModes.includes(drSignatureMode)) {
-    throw new SignatureConfigurationError("Invalid Dr. Niraj Shah signature mode");
+    throw new SignatureConfigurationError("Invalid legacy doctor signature mode");
   }
 
   if (!signatureModes.includes(authorizedSignatureMode)) {
-    throw new SignatureConfigurationError("Invalid Authorized Person signature mode");
+    throw new SignatureConfigurationError("Invalid legacy authorized signature mode");
   }
 
   if (!signatureLayouts.includes(signatureLayout)) {
     throw new SignatureConfigurationError("Invalid signature layout");
   }
 
-  if (!singleSignaturePositions.includes(singleSignaturePosition)) {
-    throw new SignatureConfigurationError("Invalid single signature position");
-  }
-
   const drSignatureImage = validateSignatureImage(
     getSignatureField(source, existingCertificate, "drSignatureImage", null),
-    drSignatureMode,
-    "Dr. Niraj Shah"
+    drSignatureMode
   );
   const authorizedSignatureImage = validateSignatureImage(
     getSignatureField(source, existingCertificate, "authorizedSignatureImage", null),
-    authorizedSignatureMode,
-    "Authorized Person"
+    authorizedSignatureMode
   );
 
   return {
-    drSignatureName: getSignatureField(source, existingCertificate, "drSignatureName", "Dr. Niraj Shah"),
+    drSignatureName: getSignatureField(source, existingCertificate, "drSignatureName", ""),
     drSignatureMode,
     drSignatureImage,
-    authorizedSignatureName: getSignatureField(source, existingCertificate, "authorizedSignatureName", "Authorized Person"),
+    authorizedSignatureName: getSignatureField(source, existingCertificate, "authorizedSignatureName", ""),
     authorizedSignatureMode,
     authorizedSignatureImage,
     signatureLayout,
-    singleSignaturePosition
+    singleSignaturePosition,
+    signatureBoxes: []
   };
 };
 
@@ -118,10 +200,11 @@ const addSignatureDefaults = (certificate) => {
 
   return {
     ...certificateData,
-    drSignatureName: certificateData.drSignatureName ?? "Dr. Niraj Shah",
+    signatureBoxes: Array.isArray(certificateData.signatureBoxes) ? certificateData.signatureBoxes : [],
+    drSignatureName: certificateData.drSignatureName ?? "",
     drSignatureMode: certificateData.drSignatureMode ?? "blank",
     drSignatureImage: certificateData.drSignatureImage ?? null,
-    authorizedSignatureName: certificateData.authorizedSignatureName ?? "Authorized Person",
+    authorizedSignatureName: certificateData.authorizedSignatureName ?? "",
     authorizedSignatureMode: certificateData.authorizedSignatureMode ?? "blank",
     authorizedSignatureImage: certificateData.authorizedSignatureImage ?? null,
     signatureLayout: certificateData.signatureLayout ?? "both",

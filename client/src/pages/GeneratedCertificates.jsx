@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import CertificatePreview from "../components/CertificatePreview.jsx";
-import SignatureUploadControl from "../components/certificate/SignatureUploadControl.jsx";
+import SignatureBoxEditor from "../components/certificate/SignatureBoxEditor.jsx";
 import templateData from "../data/templateData.js";
 import { deleteCertificate, getCertificates, updateCertificate } from "../services/certificateApi.js";
 import downloadCertificatePdf from "../utils/downloadCertificatePdf.js";
@@ -27,22 +27,59 @@ const categoryOptions = [
   "Technical"
 ];
 
+const getBoxesFromCertificate = (certificate) => {
+  if (Array.isArray(certificate?.signatureBoxes)) {
+    return certificate.signatureBoxes;
+  }
+  if (certificate?.signatureLayout === "dr-only") {
+    return [
+      {
+        signerName: certificate.drSignatureName || "Dr. Niraj Shah",
+        signerDesignation: "Dean, SOE",
+        signatureMode: certificate.drSignatureMode || "blank",
+        signatureImage: certificate.drSignatureImage || null
+      }
+    ];
+  }
+  if (certificate?.signatureLayout === "authorized-only") {
+    return [
+      {
+        signerName: certificate.authorizedSignatureName || "Authorized Person",
+        signerDesignation: "Authorized Signature",
+        signatureMode: certificate.authorizedSignatureMode || "blank",
+        signatureImage: certificate.authorizedSignatureImage || null
+      }
+    ];
+  }
+  if (certificate?.signatureLayout === "both") {
+    return [
+      {
+        signerName: certificate.authorizedSignatureName || "Authorized Person",
+        signerDesignation: "Authorized Signature",
+        signatureMode: certificate.authorizedSignatureMode || "blank",
+        signatureImage: certificate.authorizedSignatureImage || null
+      },
+      {
+        signerName: certificate.drSignatureName || "Dr. Niraj Shah",
+        signerDesignation: "Dean, SOE",
+        signatureMode: certificate.drSignatureMode || "blank",
+        signatureImage: certificate.drSignatureImage || null
+      }
+    ];
+  }
+  return [];
+};
+
 const createEditData = (certificate) => ({
   participantName: certificate?.participantName || "",
   organizationName: certificate?.organizationName || "",
   eventName: certificate?.eventName || "",
-  certificateCategory: certificate?.certificateCategory || "",
+  certificateCategory: certificate?.certificateCategory || certificate?.category || "",
   certificateTitle: certificate?.certificateTitle || "",
   eventDate: certificate?.eventDate || "",
   description: certificate?.description || "",
   templateStyle: certificate?.templateStyle || "",
-  drSignatureName: certificate?.drSignatureName || "Dr. Niraj Shah",
-  drSignatureMode: certificate?.drSignatureMode || "blank",
-  drSignatureImage: certificate?.drSignatureImage || null,
-  authorizedSignatureName: certificate?.authorizedSignatureName || "Authorized Person",
-  authorizedSignatureMode: certificate?.authorizedSignatureMode || "blank",
-  authorizedSignatureImage: certificate?.authorizedSignatureImage || null,
-  signatureLayout: certificate?.signatureLayout || "both",
+  signatureBoxes: getBoxesFromCertificate(certificate),
   singleSignaturePosition: certificate?.singleSignaturePosition || "center",
   status: certificate?.status || "Generated"
 });
@@ -157,6 +194,46 @@ function GeneratedCertificates() {
     }));
   };
 
+  const handleAddSignatureBox = () => {
+    if (editData.signatureBoxes.length >= 3) return;
+    setEditData((prev) => ({
+      ...prev,
+      signatureBoxes: [
+        ...prev.signatureBoxes,
+        {
+          signerName: "",
+          signerDesignation: "",
+          signatureMode: "blank",
+          signatureImage: null
+        }
+      ]
+    }));
+  };
+
+  const handleSignatureBoxChange = (index, updatedBox) => {
+    setEditData((prev) => {
+      const newBoxes = [...prev.signatureBoxes];
+      newBoxes[index] = updatedBox;
+      return { ...prev, signatureBoxes: newBoxes };
+    });
+  };
+
+  const handleRemoveSignatureBox = (index) => {
+    setEditData((prev) => {
+      const newBoxes = prev.signatureBoxes.filter((_, i) => i !== index);
+      return { ...prev, signatureBoxes: newBoxes };
+    });
+  };
+
+  const cleanSignatureBoxes = (boxes) => {
+    if (!Array.isArray(boxes)) return [];
+    return boxes.filter(
+      (box) =>
+        (box.signerName && box.signerName.trim() !== "") ||
+        (box.signerDesignation && box.signerDesignation.trim() !== "")
+    );
+  };
+
   const handleSaveEdit = async () => {
     if (!editingCertificate) {
       return;
@@ -165,7 +242,21 @@ function GeneratedCertificates() {
     try {
       setIsSavingEdit(true);
 
-      const result = await updateCertificate(editingCertificate._id, editData);
+      const cleanedBoxes = cleanSignatureBoxes(editData.signatureBoxes);
+      const payload = {
+        ...editData,
+        signatureBoxes: cleanedBoxes,
+        singleSignaturePosition: editData.singleSignaturePosition || "center",
+        drSignatureName: cleanedBoxes[0]?.signerName || "",
+        drSignatureMode: cleanedBoxes[0]?.signatureMode || "blank",
+        drSignatureImage: cleanedBoxes[0]?.signatureImage || null,
+        authorizedSignatureName: cleanedBoxes[1]?.signerName || "",
+        authorizedSignatureMode: cleanedBoxes[1]?.signatureMode || "blank",
+        authorizedSignatureImage: cleanedBoxes[1]?.signatureImage || null,
+        signatureLayout: cleanedBoxes.length === 1 ? "dr-only" : cleanedBoxes.length >= 2 ? "both" : "none"
+      };
+
+      const result = await updateCertificate(editingCertificate._id, payload);
       const updatedCertificate = result.data;
 
       setCertificates((currentCertificates) =>
@@ -242,13 +333,8 @@ function GeneratedCertificates() {
   const normalizedSelectedCertificate = selectedCertificate
     ? {
         ...selectedCertificate,
-        drSignatureName: selectedCertificate.drSignatureName || "Dr. Niraj Shah",
-        drSignatureMode: selectedCertificate.drSignatureMode || "blank",
-        drSignatureImage: selectedCertificate.drSignatureImage || null,
-        authorizedSignatureName: selectedCertificate.authorizedSignatureName || "Authorized Person",
-        authorizedSignatureMode: selectedCertificate.authorizedSignatureMode || "blank",
-        authorizedSignatureImage: selectedCertificate.authorizedSignatureImage || null,
-        signatureLayout: selectedCertificate.signatureLayout || "both",
+        certificateCategory: selectedCertificate.certificateCategory || selectedCertificate.category || "",
+        signatureBoxes: getBoxesFromCertificate(selectedCertificate),
         singleSignaturePosition: selectedCertificate.singleSignaturePosition || "center"
       }
     : null;
@@ -559,106 +645,33 @@ function GeneratedCertificates() {
 
               {/* Signature Settings inside Edit Modal */}
               <div className="border-t border-slate-100 pt-5 space-y-4">
-                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Signature Settings</h4>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-                    Who should sign?
-                  </label>
-                  <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Signature Settings</h4>
+                    <p className="text-xs text-slate-500 font-semibold">Create up to 3 custom signature blocks.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                      Boxes: {editData.signatureBoxes.length} / 3
+                    </span>
                     <button
                       type="button"
-                      onClick={() => setEditData((prev) => ({ ...prev, signatureLayout: "dr-only" }))}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition ${
-                        editData.signatureLayout === "dr-only" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600"
-                      }`}
+                      onClick={handleAddSignatureBox}
+                      disabled={editData.signatureBoxes.length >= 3}
+                      className="rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-blue-700 transition disabled:opacity-50"
                     >
-                      Dr. Niraj Shah only
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditData((prev) => ({ ...prev, signatureLayout: "authorized-only" }))}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition ${
-                        editData.signatureLayout === "authorized-only" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600"
-                      }`}
-                    >
-                      Authorized Person only
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditData((prev) => ({ ...prev, signatureLayout: "both" }))}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition ${
-                        editData.signatureLayout === "both" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600"
-                      }`}
-                    >
-                      Both
+                      + Create Signature Box
                     </button>
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {(editData.signatureLayout === "both" || editData.signatureLayout === "dr-only") && (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                      <label className="grid gap-1 text-xs font-bold uppercase tracking-wider text-slate-600">
-                        Dr. Niraj Shah Name
-                        <input className={inputClass} name="drSignatureName" value={editData.drSignatureName} onChange={handleEditChange} />
-                      </label>
-                      <SignatureUploadControl
-                        label="Signature Type"
-                        personName={editData.drSignatureName || "Dr. Niraj Shah"}
-                        mode={editData.drSignatureMode}
-                        image={editData.drSignatureImage}
-                        onModeChange={(mode) => setEditData((prev) => ({ ...prev, drSignatureMode: mode }))}
-                        onImageChange={(imageDataUrl) =>
-                          setEditData((prev) => ({
-                            ...prev,
-                            drSignatureMode: "image",
-                            drSignatureImage: imageDataUrl
-                          }))
-                        }
-                        onRemoveImage={() =>
-                          setEditData((prev) => ({
-                            ...prev,
-                            drSignatureMode: "blank",
-                            drSignatureImage: null
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
+                {editData.signatureBoxes.length >= 3 && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                    Maximum 3 signature boxes allowed.
+                  </div>
+                )}
 
-                  {(editData.signatureLayout === "both" || editData.signatureLayout === "authorized-only") && (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                      <label className="grid gap-1 text-xs font-bold uppercase tracking-wider text-slate-600">
-                        Authorized Person Name
-                        <input className={inputClass} name="authorizedSignatureName" value={editData.authorizedSignatureName} onChange={handleEditChange} />
-                      </label>
-                      <SignatureUploadControl
-                        label="Signature Type"
-                        personName={editData.authorizedSignatureName || "Authorized Person"}
-                        mode={editData.authorizedSignatureMode}
-                        image={editData.authorizedSignatureImage}
-                        onModeChange={(mode) => setEditData((prev) => ({ ...prev, authorizedSignatureMode: mode }))}
-                        onImageChange={(imageDataUrl) =>
-                          setEditData((prev) => ({
-                            ...prev,
-                            authorizedSignatureMode: "image",
-                            authorizedSignatureImage: imageDataUrl
-                          }))
-                        }
-                        onRemoveImage={() =>
-                          setEditData((prev) => ({
-                            ...prev,
-                            authorizedSignatureMode: "blank",
-                            authorizedSignatureImage: null
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {(editData.signatureLayout === "dr-only" || editData.signatureLayout === "authorized-only") && (
+                {editData.signatureBoxes.length === 1 && (
                   <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 space-y-1.5">
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
                       Signature Position
@@ -670,13 +683,31 @@ function GeneratedCertificates() {
                           type="button"
                           onClick={() => setEditData((prev) => ({ ...prev, singleSignaturePosition: pos }))}
                           className={`rounded px-3 py-1 text-xs font-bold capitalize transition ${
-                            editData.singleSignaturePosition === pos ? "bg-blue-600 text-white" : "text-slate-600"
+                            (editData.singleSignaturePosition || "center") === pos ? "bg-blue-600 text-white" : "text-slate-600"
                           }`}
                         >
                           {pos}
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {editData.signatureBoxes.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs font-bold text-slate-500">
+                    No signature boxes added.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {editData.signatureBoxes.map((box, index) => (
+                      <SignatureBoxEditor
+                        key={index}
+                        box={box}
+                        index={index}
+                        onChange={(updatedBox) => handleSignatureBoxChange(index, updatedBox)}
+                        onRemove={() => handleRemoveSignatureBox(index)}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -707,4 +738,3 @@ function GeneratedCertificates() {
 }
 
 export default GeneratedCertificates;
-

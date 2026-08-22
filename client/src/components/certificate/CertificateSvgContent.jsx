@@ -10,20 +10,22 @@ function CertificateSvgContent({
   participantName = "Pritkumar Koradiya",
   organizationName = "School of Engineering, PP Savani University",
   eventName = "International Tech Summit 2026",
-  certificateCategory = "Seminar",
+  certificateCategory = "",
+  category = "",
   certificateTitle = "Certificate of Participation",
   eventDate = "2026-08-15",
   description = "for successfully attending and participating in the technical sessions and workshops.",
-  certificateId = "CERT-2026-0001",
-  authorizedSignatureName = "Authorized Person",
-  authorizedSignatureMode = "blank",
-  authorizedSignatureImage = null,
-  drSignatureName = "Dr. Niraj Shah",
-  drSignatureMode = "blank",
-  drSignatureImage = null,
-  deanName,
-  signatureLayout = "both",
+  certificateId = "",
+  signatureBoxes = null,
   singleSignaturePosition = "center",
+  drSignatureName,
+  drSignatureMode,
+  drSignatureImage,
+  authorizedSignatureName,
+  authorizedSignatureMode,
+  authorizedSignatureImage,
+  signatureLayout,
+  deanName,
   theme = {}
 }) {
   // Theme Color Scheme
@@ -34,24 +36,52 @@ function CertificateSvgContent({
   const accentColor = theme.accentColor || theme.accent || "#1e3a8a";
   const borderColor = theme.borderColor || theme.line || "rgba(30,58,138,0.3)";
 
-  // Resolved signature values with safe fallbacks
-  const resolvedAuthorizedName = authorizedSignatureName || "Authorized Person";
-  const resolvedAuthorizedMode = authorizedSignatureMode || "blank";
-  const resolvedAuthorizedImage = authorizedSignatureImage || null;
-
-  const resolvedDrName = drSignatureName || deanName || "Dr. Niraj Shah";
-  const resolvedDrMode = drSignatureMode || "blank";
-  const resolvedDrImage = drSignatureImage || null;
-
-  const resolvedLayout = signatureLayout || "both";
+  const displayCategory = (certificateCategory || category || "").trim();
   const resolvedPosition = singleSignaturePosition || "center";
 
-  // Single signature position center-X helper
-  const getSingleSignerX = (pos) => {
-    if (pos === "left") return 330;
-    if (pos === "right") return 1270;
-    return 800; // "center"
-  };
+  // Resolve signature boxes array: use signatureBoxes if provided, else fallback to legacy layout
+  const boxes = (() => {
+    if (Array.isArray(signatureBoxes)) {
+      return signatureBoxes;
+    }
+    if (signatureLayout === "dr-only") {
+      return [
+        {
+          signerName: drSignatureName || deanName || "Dr. Niraj Shah",
+          signerDesignation: "Dean, SOE",
+          signatureMode: drSignatureMode || "blank",
+          signatureImage: drSignatureImage || null
+        }
+      ];
+    }
+    if (signatureLayout === "authorized-only") {
+      return [
+        {
+          signerName: authorizedSignatureName || "Authorized Person",
+          signerDesignation: "Authorized Signature",
+          signatureMode: authorizedSignatureMode || "blank",
+          signatureImage: authorizedSignatureImage || null
+        }
+      ];
+    }
+    if (signatureLayout === "both") {
+      return [
+        {
+          signerName: authorizedSignatureName || "Authorized Person",
+          signerDesignation: "Authorized Signature",
+          signatureMode: authorizedSignatureMode || "blank",
+          signatureImage: authorizedSignatureImage || null
+        },
+        {
+          signerName: drSignatureName || deanName || "Dr. Niraj Shah",
+          signerDesignation: "Dean, SOE",
+          signatureMode: drSignatureMode || "blank",
+          signatureImage: drSignatureImage || null
+        }
+      ];
+    }
+    return [];
+  })();
 
   // Date Formatting
   const formattedDate = eventDate
@@ -109,8 +139,8 @@ function CertificateSvgContent({
 
   return (
     <g className="certificate-svg-content">
-      {/* 1. CATEGORY LABEL (y = 145) */}
-      {certificateCategory && (
+      {/* 1. CATEGORY LABEL (y = 145) - Dynamic selected category heading */}
+      {displayCategory && (
         <text
           x="800"
           y="145"
@@ -121,7 +151,7 @@ function CertificateSvgContent({
           letterSpacing="4"
           className="uppercase"
         >
-          {certificateCategory.toUpperCase()}
+          {displayCategory.toUpperCase()}
         </text>
       )}
 
@@ -236,58 +266,45 @@ function CertificateSvgContent({
         </text>
       )}
 
-      {/* 10. FOOTER DIVIDER (y = 840) */}
-      <line x1="170" y1="840" x2="1430" y2="840" stroke={borderColor} strokeWidth="1.5" />
-
-      {/* 11. FOOTER SIGNATURES & CERTIFICATE ID (NO SEAL) */}
-
-      {/* Authorized Person Signature Block */}
-      {(resolvedLayout === "both" || resolvedLayout === "authorized-only") && (
-        <CertificateSignatureBlock
-          isSvg={true}
-          personName={resolvedAuthorizedName}
-          signatureMode={resolvedAuthorizedMode}
-          signatureImage={resolvedAuthorizedImage}
-          subtitle="Authorized Signature"
-          lineColor={titleColor}
-          textColor={titleColor}
-          subtitleColor={mutedColor}
-          centerX={resolvedLayout === "both" ? 330 : getSingleSignerX(resolvedPosition)}
-          yOffset={855}
-        />
+      {/* 10. FOOTER DIVIDER (y = 840) - Only show when at least 1 signature block exists */}
+      {boxes.length > 0 && (
+        <line x1="170" y1="840" x2="1430" y2="840" stroke={borderColor} strokeWidth="1.5" />
       )}
 
-      {/* Dr. Niraj Shah Signature Block */}
-      {(resolvedLayout === "both" || resolvedLayout === "dr-only") && (
-        <CertificateSignatureBlock
-          isSvg={true}
-          personName={resolvedDrName}
-          signatureMode={resolvedDrMode}
-          signatureImage={resolvedDrImage}
-          subtitle="Dean, SOE"
-          lineColor={titleColor}
-          textColor={titleColor}
-          subtitleColor={mutedColor}
-          centerX={resolvedLayout === "both" ? 1270 : getSingleSignerX(resolvedPosition)}
-          yOffset={855}
-        />
-      )}
+      {/* 11. DYNAMIC FOOTER SIGNATURE BLOCKS (NO CERTIFICATE ID, NO SEAL) */}
+      {boxes.map((box, index) => {
+        let centerX = 800;
+        if (boxes.length === 1) {
+          if (resolvedPosition === "left") centerX = 330;
+          else if (resolvedPosition === "right") centerX = 1270;
+          else centerX = 800; // "center"
+        } else if (boxes.length === 2) {
+          if (index === 0) centerX = 330;
+          else centerX = 1270;
+        } else if (boxes.length === 3) {
+          if (index === 0) centerX = 300;
+          else if (index === 1) centerX = 800;
+          else centerX = 1300;
+        }
 
-      {/* Centered Certificate ID */}
-      <text
-        x="800"
-        y={resolvedLayout !== "both" && resolvedPosition === "center" ? "1010" : "955"}
-        textAnchor="middle"
-        fill={mutedColor}
-        fontSize="16"
-        fontFamily="monospace"
-        fontWeight="700"
-      >
-        {certificateId}
-      </text>
+        return (
+          <CertificateSignatureBlock
+            key={index}
+            isSvg={true}
+            personName={box.signerName}
+            subtitle={box.signerDesignation}
+            signatureMode={box.signatureMode}
+            signatureImage={box.signatureImage}
+            lineColor={titleColor}
+            textColor={titleColor}
+            subtitleColor={mutedColor}
+            centerX={centerX}
+            yOffset={855}
+          />
+        );
+      })}
     </g>
   );
 }
 
 export default CertificateSvgContent;
-

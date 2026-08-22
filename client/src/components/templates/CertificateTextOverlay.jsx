@@ -62,22 +62,23 @@ function CertificateTextOverlay({
   const displayParticipantName = valueOrFallback(participantName, "Participant Name");
   const displayOrganizationName = valueOrFallback(organizationName, "Organization Name");
   const displayEventName = valueOrFallback(eventName, "Event Name");
-  const displayCategory = valueOrFallback(certificateCategory || category, "Category");
+  const displayCategory = valueOrFallback(certificateCategory || category, "");
   const displayTitle = valueOrFallback(certificateTitle, "Certificate of Participation");
   const displayEventDate = valueOrFallback(eventDate, "Event Date");
   const displayDescription = valueOrFallback(description, "For successfully participating in the event.");
-  const displaySignature = valueOrFallback(authorizedSignatureName, "Authorized Person");
-  const displayCertificateId = valueOrFallback(certificateId, "CERT-2026-001");
+  const displaySignature = valueOrFallback(authorizedSignatureName, "");
   const issueDate = formatIssueDate(createdAt);
 
   return (
     <div className="certificate-text-overlay pointer-events-none absolute inset-0 z-20 text-center">
-      <p
-        className={`certificate-body-safe absolute truncate font-black uppercase tracking-[0.28em] ${theme.muted}`}
-        style={{ top: "12%", left: "11%", right: "11%" }}
-      >
-        {displayCategory}
-      </p>
+      {displayCategory && (
+        <p
+          className={`certificate-body-safe absolute truncate font-black uppercase tracking-[0.28em] ${theme.muted}`}
+          style={{ top: "12%", left: "11%", right: "11%" }}
+        >
+          {displayCategory.toUpperCase()}
+        </p>
+      )}
 
       <h1
         className={`certificate-title-safe absolute font-serif ${theme.main}`}
@@ -127,25 +128,25 @@ function CertificateTextOverlay({
         {displayDescription}
       </p>
 
-      <footer
-        className={`certificate-footer-safe absolute bottom-[7%] left-[11%] right-[11%] flex items-center justify-between border-t pt-4 ${theme.footerLine} ${theme.main}`}
-      >
-        <div className="min-w-0 text-left">
-          <div className={`h-px w-full max-w-44 ${theme.line}`} />
-          <p className={`mt-1.5 truncate font-black uppercase tracking-wide ${theme.main}`}>
-            {displaySignature}
-          </p>
-          <p className={`mt-0.5 truncate text-xs font-semibold ${theme.muted}`}>
-            Authorized Signature
-          </p>
-        </div>
+      {displaySignature && (
+        <footer
+          className={`certificate-footer-safe absolute bottom-[7%] left-[11%] right-[11%] flex items-center justify-between border-t pt-4 ${theme.footerLine} ${theme.main}`}
+        >
+          <div className="min-w-0 text-left">
+            <div className={`h-px w-full max-w-44 ${theme.line}`} />
+            <p className={`mt-1.5 truncate font-black uppercase tracking-wide ${theme.main}`}>
+              {displaySignature}
+            </p>
+            <p className={`mt-0.5 truncate text-xs font-semibold ${theme.muted}`}>
+              Authorized Signature
+            </p>
+          </div>
 
-        <div className="min-w-0 text-center">
-          <p className={`truncate font-black uppercase tracking-wide text-xs ${theme.muted}`}>Certificate ID</p>
-          <p className={`truncate font-mono font-bold ${theme.main}`}>{displayCertificateId}</p>
-          <p className={`mt-0.5 truncate text-[11px] font-semibold ${theme.muted}`}>Issue Date: {issueDate}</p>
-        </div>
-      </footer>
+          <div className="min-w-0 text-right">
+            <p className={`mt-0.5 truncate text-[11px] font-semibold ${theme.muted}`}>Issue Date: {issueDate}</p>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

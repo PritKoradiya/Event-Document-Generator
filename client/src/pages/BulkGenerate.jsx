@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import CertificatePreview from "../components/CertificatePreview.jsx";
 import CertificateSvg from "../components/certificate/CertificateSvg.jsx";
+import SignatureBoxEditor from "../components/certificate/SignatureBoxEditor.jsx";
 import templateData from "../data/templateData.js";
 import { bulkCreateCertificates } from "../services/certificateApi.js";
 import downloadCertificatePdf, { generateCertificatePdfBlob, safeFileName } from "../utils/downloadCertificatePdf.js";
@@ -34,14 +35,8 @@ const initialCommonDetails = {
   certificateTitle: "Certificate of Participation",
   eventDate: "",
   description: "For successfully participating in the event.",
-  templateStyle: "",
-  drSignatureName: "Dr. Niraj Shah",
-  drSignatureMode: "blank",
-  drSignatureImage: null,
-  authorizedSignatureName: "Authorized Person",
-  authorizedSignatureMode: "blank",
-  authorizedSignatureImage: null,
-  signatureLayout: "both",
+  templateStyle: "Classic Certificate",
+  signatureBoxes: [],
   singleSignaturePosition: "center"
 };
 
@@ -87,14 +82,8 @@ function BulkGenerate() {
       eventDate: commonDetails.eventDate,
       description: commonDetails.description,
       templateStyle: commonDetails.templateStyle,
-      drSignatureName: commonDetails.drSignatureName || "Dr. Niraj Shah",
-      drSignatureMode: commonDetails.drSignatureMode || "blank",
-      drSignatureImage: commonDetails.drSignatureImage || null,
-      authorizedSignatureName: commonDetails.authorizedSignatureName || "Authorized Person",
-      authorizedSignatureMode: commonDetails.authorizedSignatureMode || "blank",
-      authorizedSignatureImage: commonDetails.authorizedSignatureImage || null,
-      signatureLayout: commonDetails.signatureLayout || "both",
-      singleSignaturePosition: commonDetails.singleSignaturePosition || "center"
+      signatureBoxes: commonDetails.signatureBoxes,
+      singleSignaturePosition: commonDetails.singleSignaturePosition
     };
   }, [commonDetails, participants]);
 
@@ -104,6 +93,46 @@ function BulkGenerate() {
       ...currentDetails,
       [name]: value
     }));
+  };
+
+  const handleAddSignatureBox = () => {
+    if (commonDetails.signatureBoxes.length >= 3) return;
+    setCommonDetails((prev) => ({
+      ...prev,
+      signatureBoxes: [
+        ...prev.signatureBoxes,
+        {
+          signerName: "",
+          signerDesignation: "",
+          signatureMode: "blank",
+          signatureImage: null
+        }
+      ]
+    }));
+  };
+
+  const handleSignatureBoxChange = (index, updatedBox) => {
+    setCommonDetails((prev) => {
+      const newBoxes = [...prev.signatureBoxes];
+      newBoxes[index] = updatedBox;
+      return { ...prev, signatureBoxes: newBoxes };
+    });
+  };
+
+  const handleRemoveSignatureBox = (index) => {
+    setCommonDetails((prev) => {
+      const newBoxes = prev.signatureBoxes.filter((_, i) => i !== index);
+      return { ...prev, signatureBoxes: newBoxes };
+    });
+  };
+
+  const cleanSignatureBoxes = (boxes) => {
+    if (!Array.isArray(boxes)) return [];
+    return boxes.filter(
+      (box) =>
+        (box.signerName && box.signerName.trim() !== "") ||
+        (box.signerDesignation && box.signerDesignation.trim() !== "")
+    );
   };
 
   const resetGeneratedResults = () => {
@@ -297,12 +326,26 @@ function BulkGenerate() {
       setIsGenerating(true);
       setSuccessMessage("");
 
+      const cleanedBoxes = cleanSignatureBoxes(commonDetails.signatureBoxes);
+      const cleanedCommonDetails = {
+        ...commonDetails,
+        signatureBoxes: cleanedBoxes,
+        singleSignaturePosition: commonDetails.singleSignaturePosition || "center",
+        drSignatureName: cleanedBoxes[0]?.signerName || "",
+        drSignatureMode: cleanedBoxes[0]?.signatureMode || "blank",
+        drSignatureImage: cleanedBoxes[0]?.signatureImage || null,
+        authorizedSignatureName: cleanedBoxes[1]?.signerName || "",
+        authorizedSignatureMode: cleanedBoxes[1]?.signatureMode || "blank",
+        authorizedSignatureImage: cleanedBoxes[1]?.signatureImage || null,
+        signatureLayout: cleanedBoxes.length === 1 ? "dr-only" : cleanedBoxes.length >= 2 ? "both" : "none"
+      };
+
       const payload = {
         participants: participants.map((participant) => ({
           participantName: participant.participantName,
           organizationName: participant.organizationName || commonDetails.organizationName
         })),
-        commonDetails
+        commonDetails: cleanedCommonDetails
       };
 
       const result = await bulkCreateCertificates(payload);
@@ -670,11 +713,6 @@ function BulkGenerate() {
             </label>
 
             <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 md:col-span-2">
-              Authorized Signature Name
-              <input className={inputClass} name="authorizedSignatureName" value={commonDetails.authorizedSignatureName} onChange={handleCommonChange} />
-            </label>
-
-            <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 md:col-span-2">
               Description / Details
               <textarea
                 className={`${inputClass} !h-24 resize-y py-2.5`}
@@ -683,6 +721,75 @@ function BulkGenerate() {
                 onChange={handleCommonChange}
               />
             </label>
+          </div>
+
+          {/* Signature Settings in Bulk Generate */}
+          <div className="border-t border-slate-100 pt-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Signature Settings</h4>
+                <p className="text-xs text-slate-500 font-semibold">Create up to 3 custom signature blocks for the batch.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                  Boxes: {commonDetails.signatureBoxes.length} / 3
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAddSignatureBox}
+                  disabled={commonDetails.signatureBoxes.length >= 3}
+                  className="rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  + Create Signature Box
+                </button>
+              </div>
+            </div>
+
+            {commonDetails.signatureBoxes.length >= 3 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                Maximum 3 signature boxes allowed.
+              </div>
+            )}
+
+            {commonDetails.signatureBoxes.length === 1 && (
+              <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Signature Position
+                </label>
+                <div className="inline-flex rounded-lg bg-white p-1 border border-slate-200">
+                  {["left", "center", "right"].map((pos) => (
+                    <button
+                      key={pos}
+                      type="button"
+                      onClick={() => setCommonDetails((prev) => ({ ...prev, singleSignaturePosition: pos }))}
+                      className={`rounded px-3 py-1 text-xs font-bold capitalize transition ${
+                        (commonDetails.singleSignaturePosition || "center") === pos ? "bg-blue-600 text-white" : "text-slate-600"
+                      }`}
+                    >
+                      {pos}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {commonDetails.signatureBoxes.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs font-bold text-slate-500">
+                No signature boxes added.
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {commonDetails.signatureBoxes.map((box, index) => (
+                  <SignatureBoxEditor
+                    key={index}
+                    box={box}
+                    index={index}
+                    onChange={(updatedBox) => handleSignatureBoxChange(index, updatedBox)}
+                    onRemove={() => handleRemoveSignatureBox(index)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
@@ -799,17 +906,14 @@ function BulkGenerate() {
             <button
               type="button"
               onClick={handleDownloadSelectedPdf}
-              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black text-white hover:bg-emerald-700 transition"
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700 transition"
             >
-              Export Selected PDF
+              Export PDF
             </button>
           </div>
-
-          <CertificatePreview
-            ref={selectedSvgRef}
-            certificateData={selectedCertificate}
-            previewId="bulk-certificate-preview-svg"
-          />
+          <div className="overflow-hidden">
+            <CertificatePreview ref={selectedSvgRef} certificateData={selectedCertificate} previewId="bulk-selected-preview-svg" />
+          </div>
         </div>
       )}
     </section>

@@ -35,12 +35,12 @@ const certificateSchema = new mongoose.Schema(
     },
     authorizedSignatureName: {
       type: String,
-      default: "Authorized Person",
+      default: "",
       trim: true
     },
     drSignatureName: {
       type: String,
-      default: "Dr. Niraj Shah",
+      default: "",
       trim: true
     },
     drSignatureMode: {
@@ -70,6 +70,35 @@ const certificateSchema = new mongoose.Schema(
       type: String,
       enum: ["left", "center", "right"],
       default: "center"
+    },
+    signatureBoxes: {
+      type: [
+        {
+          _id: false,
+          signerName: {
+            type: String,
+            default: ""
+          },
+          signerDesignation: {
+            type: String,
+            default: ""
+          },
+          signatureMode: {
+            type: String,
+            enum: ["blank", "image"],
+            default: "blank"
+          },
+          signatureImage: {
+            type: String,
+            default: null
+          }
+        }
+      ],
+      default: [],
+      validate: {
+        validator: (boxes) => boxes.length <= 3,
+        message: "Maximum 3 signature boxes are allowed"
+      }
     },
     certificateId: {
       type: String,
