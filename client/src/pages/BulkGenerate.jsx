@@ -35,7 +35,14 @@ const initialCommonDetails = {
   eventDate: "",
   description: "For successfully participating in the event.",
   templateStyle: "",
-  authorizedSignatureName: "Event Coordinator"
+  drSignatureName: "Dr. Niraj Shah",
+  drSignatureMode: "blank",
+  drSignatureImage: null,
+  authorizedSignatureName: "Authorized Person",
+  authorizedSignatureMode: "blank",
+  authorizedSignatureImage: null,
+  signatureLayout: "both",
+  singleSignaturePosition: "center"
 };
 
 const workflowPhases = [
@@ -80,7 +87,14 @@ function BulkGenerate() {
       eventDate: commonDetails.eventDate,
       description: commonDetails.description,
       templateStyle: commonDetails.templateStyle,
-      authorizedSignatureName: commonDetails.authorizedSignatureName
+      drSignatureName: commonDetails.drSignatureName || "Dr. Niraj Shah",
+      drSignatureMode: commonDetails.drSignatureMode || "blank",
+      drSignatureImage: commonDetails.drSignatureImage || null,
+      authorizedSignatureName: commonDetails.authorizedSignatureName || "Authorized Person",
+      authorizedSignatureMode: commonDetails.authorizedSignatureMode || "blank",
+      authorizedSignatureImage: commonDetails.authorizedSignatureImage || null,
+      signatureLayout: commonDetails.signatureLayout || "both",
+      singleSignaturePosition: commonDetails.singleSignaturePosition || "center"
     };
   }, [commonDetails, participants]);
 

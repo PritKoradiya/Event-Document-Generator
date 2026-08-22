@@ -4,6 +4,7 @@ import {
   getCertificateTitleSize,
   getDescriptionSize
 } from "../../utils/certificateTextSizing.js";
+import CertificateSignatureBlock from "./CertificateSignatureBlock.jsx";
 
 function CertificateContentLayout({
   participantName = "Pritkumar Koradiya",
@@ -14,8 +15,15 @@ function CertificateContentLayout({
   eventDate = "2026-08-15",
   description = "for successfully attending and participating in the technical sessions and workshops.",
   certificateId = "CERT-2026-0001",
-  authorizedSignatureName = "Dr. Jayshri Patil",
-  deanName = "Dr. Niraj Shah",
+  authorizedSignatureName = "Authorized Person",
+  authorizedSignatureMode = "blank",
+  authorizedSignatureImage = null,
+  drSignatureName = "Dr. Niraj Shah",
+  drSignatureMode = "blank",
+  drSignatureImage = null,
+  deanName,
+  signatureLayout = "both",
+  singleSignaturePosition = "center",
   isDarkTheme = false,
   themeColors = {}
 }) {
@@ -24,12 +32,22 @@ function CertificateContentLayout({
   const secondaryTextColor = themeColors.secondaryText || (isDarkTheme ? "#cbd5e1" : "#475569");
   const accentColor = themeColors.accent || (isDarkTheme ? "#fbbf24" : "#1e3a8a");
   const lineColor = themeColors.line || (isDarkTheme ? "rgba(251,191,36,0.4)" : "rgba(30,58,138,0.25)");
-  const sealColor = themeColors.seal || (isDarkTheme ? "#f59e0b" : "#d97706");
 
   // Dynamic Font Sizes
   const nameStyle = getParticipantNameSize(participantName);
   const titleStyle = getCertificateTitleSize(certificateTitle);
   const descStyle = getDescriptionSize(description);
+
+  const resolvedAuthorizedName = authorizedSignatureName || "Authorized Person";
+  const resolvedAuthorizedMode = authorizedSignatureMode || "blank";
+  const resolvedAuthorizedImage = authorizedSignatureImage || null;
+
+  const resolvedDrName = drSignatureName || deanName || "Dr. Niraj Shah";
+  const resolvedDrMode = drSignatureMode || "blank";
+  const resolvedDrImage = drSignatureImage || null;
+
+  const resolvedLayout = signatureLayout || "both";
+  const resolvedPosition = singleSignaturePosition || "center";
 
   const formattedDate = eventDate
     ? new Date(eventDate).toLocaleDateString("en-US", {
@@ -143,55 +161,62 @@ function CertificateContentLayout({
         </div>
       </div>
 
-      {/* ROW 4: FOOTER SECTION (22% Height - 3 Equal Columns) */}
-      <div className="grid grid-cols-3 items-end pt-4 border-t" style={{ borderColor: lineColor }}>
-        {/* Left Column: Authorized Signature */}
-        <div className="flex flex-col items-center text-center">
-          <span className="signature-font text-[28px] leading-none mb-1" style={{ color: accentColor }}>
-            {authorizedSignatureName || "Authorized Signature"}
-          </span>
-          <div className="h-0.5 w-48 mb-1.5" style={{ background: primaryTextColor, opacity: 0.6 }} />
-          <span className="text-[17px] font-black uppercase tracking-wider" style={{ color: primaryTextColor }}>
-            {authorizedSignatureName || "Dr. Jayshri Patil"}
-          </span>
-          <span className="text-[15px] font-bold" style={{ color: secondaryTextColor }}>
-            Authorized Signature
-          </span>
-        </div>
+      {/* ROW 4: FOOTER SECTION (NO SEAL) */}
+      <div className="flex items-end justify-between pt-4 border-t" style={{ borderColor: lineColor }}>
+        {/* Authorized Person Signature */}
+        {(resolvedLayout === "both" || resolvedLayout === "authorized-only") && (
+          <CertificateSignatureBlock
+            personName={resolvedAuthorizedName}
+            signatureMode={resolvedAuthorizedMode}
+            signatureImage={resolvedAuthorizedImage}
+            subtitle="Authorized Signature"
+            lineColor={primaryTextColor}
+            textColor={primaryTextColor}
+            subtitleColor={secondaryTextColor}
+            className={
+              resolvedLayout !== "both"
+                ? resolvedPosition === "left"
+                  ? "mr-auto"
+                  : resolvedPosition === "right"
+                  ? "ml-auto"
+                  : "mx-auto"
+                : ""
+            }
+          />
+        )}
 
-        {/* Center Column: Official Seal & ID */}
-        <div className="flex flex-col items-center text-center justify-end">
-          <div
-            className="flex h-16 w-16 items-center justify-center rounded-full border-2 text-[10px] font-black uppercase mb-1 shadow-xs"
-            style={{
-              borderColor: sealColor,
-              color: sealColor,
-              background: isDarkTheme ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.8)"
-            }}
-          >
-            OFFICIAL SEAL
-          </div>
+        {/* Center Certificate ID */}
+        <div className="flex flex-col items-center text-center justify-end mx-auto">
           <span className="font-mono text-[16px] font-bold tracking-widest opacity-80" style={{ color: secondaryTextColor }}>
             {certificateId}
           </span>
         </div>
 
-        {/* Right Column: Dean / Coordinator Signature */}
-        <div className="flex flex-col items-center text-center">
-          <span className="signature-font text-[28px] leading-none mb-1" style={{ color: accentColor }}>
-            {deanName || "Dr. Niraj Shah"}
-          </span>
-          <div className="h-0.5 w-48 mb-1.5" style={{ background: primaryTextColor, opacity: 0.6 }} />
-          <span className="text-[17px] font-black uppercase tracking-wider" style={{ color: primaryTextColor }}>
-            {deanName || "Dr. Niraj Shah"}
-          </span>
-          <span className="text-[15px] font-bold" style={{ color: secondaryTextColor }}>
-            Dean, SOE
-          </span>
-        </div>
+        {/* Dr. Niraj Shah Signature */}
+        {(resolvedLayout === "both" || resolvedLayout === "dr-only") && (
+          <CertificateSignatureBlock
+            personName={resolvedDrName}
+            signatureMode={resolvedDrMode}
+            signatureImage={resolvedDrImage}
+            subtitle="Dean, SOE"
+            lineColor={primaryTextColor}
+            textColor={primaryTextColor}
+            subtitleColor={secondaryTextColor}
+            className={
+              resolvedLayout !== "both"
+                ? resolvedPosition === "left"
+                  ? "mr-auto"
+                  : resolvedPosition === "right"
+                  ? "ml-auto"
+                  : "mx-auto"
+                : ""
+            }
+          />
+        )}
       </div>
     </div>
   );
 }
 
 export default CertificateContentLayout;
+

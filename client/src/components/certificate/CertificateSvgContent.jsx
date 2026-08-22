@@ -1,9 +1,10 @@
 import React from "react";
 import { wrapText } from "../../utils/svgTextLayout.js";
+import CertificateSignatureBlock from "./CertificateSignatureBlock.jsx";
 
 /**
- * Pure SVG Content Renderer for Certificate Text, Dividers, Signatures, and Seal.
- * Uses ONLY native SVG elements (<g>, <text>, <tspan>, <line>, <circle>, <path>).
+ * Pure SVG Content Renderer for Certificate Text, Dividers, and Dynamic Signatures.
+ * Uses ONLY native SVG elements (<g>, <text>, <tspan>, <line>, <circle>, <path>, <image>).
  */
 function CertificateSvgContent({
   participantName = "Pritkumar Koradiya",
@@ -14,8 +15,15 @@ function CertificateSvgContent({
   eventDate = "2026-08-15",
   description = "for successfully attending and participating in the technical sessions and workshops.",
   certificateId = "CERT-2026-0001",
-  authorizedSignatureName = "Dr. Jayshri Patil",
-  deanName = "Dr. Niraj Shah",
+  authorizedSignatureName = "Authorized Person",
+  authorizedSignatureMode = "blank",
+  authorizedSignatureImage = null,
+  drSignatureName = "Dr. Niraj Shah",
+  drSignatureMode = "blank",
+  drSignatureImage = null,
+  deanName,
+  signatureLayout = "both",
+  singleSignaturePosition = "center",
   theme = {}
 }) {
   // Theme Color Scheme
@@ -25,8 +33,25 @@ function CertificateSvgContent({
   const mutedColor = theme.mutedColor || theme.secondaryText || "#64748b";
   const accentColor = theme.accentColor || theme.accent || "#1e3a8a";
   const borderColor = theme.borderColor || theme.line || "rgba(30,58,138,0.3)";
-  const signatureColor = theme.signatureColor || accentColor;
-  const sealColor = theme.sealColor || theme.seal || "#d97706";
+
+  // Resolved signature values with safe fallbacks
+  const resolvedAuthorizedName = authorizedSignatureName || "Authorized Person";
+  const resolvedAuthorizedMode = authorizedSignatureMode || "blank";
+  const resolvedAuthorizedImage = authorizedSignatureImage || null;
+
+  const resolvedDrName = drSignatureName || deanName || "Dr. Niraj Shah";
+  const resolvedDrMode = drSignatureMode || "blank";
+  const resolvedDrImage = drSignatureImage || null;
+
+  const resolvedLayout = signatureLayout || "both";
+  const resolvedPosition = singleSignaturePosition || "center";
+
+  // Single signature position center-X helper
+  const getSingleSignerX = (pos) => {
+    if (pos === "left") return 330;
+    if (pos === "right") return 1270;
+    return 800; // "center"
+  };
 
   // Date Formatting
   const formattedDate = eventDate
@@ -214,63 +239,55 @@ function CertificateSvgContent({
       {/* 10. FOOTER DIVIDER (y = 840) */}
       <line x1="170" y1="840" x2="1430" y2="840" stroke={borderColor} strokeWidth="1.5" />
 
-      {/* 11. FOOTER THREE COLUMNS */}
+      {/* 11. FOOTER SIGNATURES & CERTIFICATE ID (NO SEAL) */}
 
-      {/* LEFT COLUMN: Authorized Signature (center x = 330) */}
-      <g className="footer-col-left">
-        <text
-          x="330"
-          y="905"
-          textAnchor="middle"
-          fill={signatureColor}
-          fontSize="34"
-          fontFamily="'Brush Script MT', 'Segoe Script', cursive"
-        >
-          {authorizedSignatureName || "Authorized Signature"}
-        </text>
-        <line x1="220" y1="930" x2="440" y2="930" stroke={titleColor} strokeWidth="2" strokeOpacity="0.6" />
-        <text x="330" y="960" textAnchor="middle" fill={titleColor} fontSize="18" fontWeight="800">
-          {(authorizedSignatureName || "Dr. Jayshri Patil").toUpperCase()}
-        </text>
-        <text x="330" y="985" textAnchor="middle" fill={mutedColor} fontSize="15" fontWeight="700">
-          Authorized Signature
-        </text>
-      </g>
+      {/* Authorized Person Signature Block */}
+      {(resolvedLayout === "both" || resolvedLayout === "authorized-only") && (
+        <CertificateSignatureBlock
+          isSvg={true}
+          personName={resolvedAuthorizedName}
+          signatureMode={resolvedAuthorizedMode}
+          signatureImage={resolvedAuthorizedImage}
+          subtitle="Authorized Signature"
+          lineColor={titleColor}
+          textColor={titleColor}
+          subtitleColor={mutedColor}
+          centerX={resolvedLayout === "both" ? 330 : getSingleSignerX(resolvedPosition)}
+          yOffset={855}
+        />
+      )}
 
-      {/* CENTER COLUMN: Official Seal & ID (center x = 800) */}
-      <g className="footer-col-center">
-        <circle cx="800" cy="910" r="30" fill="none" stroke={sealColor} strokeWidth="3" />
-        <circle cx="800" cy="910" r="26" fill="none" stroke={sealColor} strokeWidth="1" strokeDasharray="3 3" />
-        <text x="800" y="914" textAnchor="middle" fill={sealColor} fontSize="10" fontWeight="900">
-          OFFICIAL SEAL
-        </text>
-        <text x="800" y="975" textAnchor="middle" fill={mutedColor} fontSize="16" fontFamily="monospace" fontWeight="700">
-          {certificateId}
-        </text>
-      </g>
+      {/* Dr. Niraj Shah Signature Block */}
+      {(resolvedLayout === "both" || resolvedLayout === "dr-only") && (
+        <CertificateSignatureBlock
+          isSvg={true}
+          personName={resolvedDrName}
+          signatureMode={resolvedDrMode}
+          signatureImage={resolvedDrImage}
+          subtitle="Dean, SOE"
+          lineColor={titleColor}
+          textColor={titleColor}
+          subtitleColor={mutedColor}
+          centerX={resolvedLayout === "both" ? 1270 : getSingleSignerX(resolvedPosition)}
+          yOffset={855}
+        />
+      )}
 
-      {/* RIGHT COLUMN: Dean / Coordinator (center x = 1270) */}
-      <g className="footer-col-right">
-        <text
-          x="1270"
-          y="905"
-          textAnchor="middle"
-          fill={signatureColor}
-          fontSize="34"
-          fontFamily="'Brush Script MT', 'Segoe Script', cursive"
-        >
-          {deanName || "Dr. Niraj Shah"}
-        </text>
-        <line x1="1160" y1="930" x2="1380" y2="930" stroke={titleColor} strokeWidth="2" strokeOpacity="0.6" />
-        <text x="1270" y="960" textAnchor="middle" fill={titleColor} fontSize="18" fontWeight="800">
-          {(deanName || "Dr. Niraj Shah").toUpperCase()}
-        </text>
-        <text x="1270" y="985" textAnchor="middle" fill={mutedColor} fontSize="15" fontWeight="700">
-          Dean, SOE
-        </text>
-      </g>
+      {/* Centered Certificate ID */}
+      <text
+        x="800"
+        y={resolvedLayout !== "both" && resolvedPosition === "center" ? "1010" : "955"}
+        textAnchor="middle"
+        fill={mutedColor}
+        fontSize="16"
+        fontFamily="monospace"
+        fontWeight="700"
+      >
+        {certificateId}
+      </text>
     </g>
   );
 }
 
 export default CertificateSvgContent;
+

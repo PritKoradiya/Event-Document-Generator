@@ -214,23 +214,21 @@ function CertificateDashboard() {
                   <p className="text-[9px] text-slate-300 font-medium">for successful participation in the International Technology Event</p>
                 </div>
 
-                {/* Footer Signatures & Seal */}
+                {/* Footer Signatures & Certificate ID */}
                 <div className="flex items-end justify-between pt-2 border-t border-slate-800">
                   <div className="space-y-1 text-center">
-                    <span className="signature-font text-xs text-blue-300">Jayshri Patil</span>
                     <div className="h-0.5 w-16 bg-slate-600 mx-auto" />
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">Coordinator</p>
+                    <p className="text-[8px] font-bold text-slate-300 uppercase">Authorized Person</p>
                   </div>
 
-                  {/* Official Gold Seal Badge */}
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-yellow-300 to-amber-400 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/30 transform hover:scale-110 transition-transform">
-                    ★
+                  <div className="text-center font-mono text-[9px] text-slate-400 font-bold">
+                    CERT-2026-0001
                   </div>
 
                   <div className="space-y-1 text-center">
-                    <span className="signature-font text-xs text-blue-300">Niraj Shah</span>
                     <div className="h-0.5 w-16 bg-slate-600 mx-auto" />
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">Dean, SOE</p>
+                    <p className="text-[8px] font-bold text-slate-300 uppercase">Dr. Niraj Shah</p>
+                    <p className="text-[7px] font-bold text-slate-400 uppercase">Dean, SOE</p>
                   </div>
                 </div>
               </div>

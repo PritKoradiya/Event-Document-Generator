@@ -38,6 +38,7 @@ The Certificate Generator allows users to create and manage professional certifi
 - Template selection
 - Category-based certificate generation
 - Authorized signature name support
+- Configurable certificate signatures: blank or uploaded image modes for Dr. Niraj Shah and Authorized Person, single-signature placement, and both-signature layout
 - Certificate PDF download
 - Bulk certificate generation
 - Manual participant list input

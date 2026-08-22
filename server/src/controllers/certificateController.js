@@ -35,6 +35,114 @@ const requiredFields = [
   "templateStyle"
 ];
 
+const signatureModes = ["blank", "image"];
+const signatureLayouts = ["dr-only", "authorized-only", "both"];
+const singleSignaturePositions = ["left", "center", "right"];
+const maxSignatureImageLength = 2 * 1024 * 1024;
+
+class SignatureConfigurationError extends Error {}
+
+const hasOwnProperty = (object, property) => Object.prototype.hasOwnProperty.call(object, property);
+
+const getSignatureField = (source, existingCertificate, field, defaultValue) => {
+  if (hasOwnProperty(source, field)) {
+    return source[field];
+  }
+
+  return existingCertificate?.[field] ?? defaultValue;
+};
+
+const validateSignatureImage = (image, mode, label) => {
+  if (mode === "blank") {
+    return null;
+  }
+
+  if (typeof image !== "string" || image.trim().length === 0) {
+    throw new SignatureConfigurationError(`${label} signature image is required when signature mode is image`);
+  }
+
+  if (image.length > maxSignatureImageLength) {
+    throw new SignatureConfigurationError(`${label} signature image exceeds the 2 MB limit`);
+  }
+
+  return image;
+};
+
+const getSignatureConfiguration = (source = {}, existingCertificate = null) => {
+  const drSignatureMode = getSignatureField(source, existingCertificate, "drSignatureMode", "blank");
+  const authorizedSignatureMode = getSignatureField(source, existingCertificate, "authorizedSignatureMode", "blank");
+  const signatureLayout = getSignatureField(source, existingCertificate, "signatureLayout", "both");
+  const singleSignaturePosition = getSignatureField(source, existingCertificate, "singleSignaturePosition", "center");
+
+  if (!signatureModes.includes(drSignatureMode)) {
+    throw new SignatureConfigurationError("Invalid Dr. Niraj Shah signature mode");
+  }
+
+  if (!signatureModes.includes(authorizedSignatureMode)) {
+    throw new SignatureConfigurationError("Invalid Authorized Person signature mode");
+  }
+
+  if (!signatureLayouts.includes(signatureLayout)) {
+    throw new SignatureConfigurationError("Invalid signature layout");
+  }
+
+  if (!singleSignaturePositions.includes(singleSignaturePosition)) {
+    throw new SignatureConfigurationError("Invalid single signature position");
+  }
+
+  const drSignatureImage = validateSignatureImage(
+    getSignatureField(source, existingCertificate, "drSignatureImage", null),
+    drSignatureMode,
+    "Dr. Niraj Shah"
+  );
+  const authorizedSignatureImage = validateSignatureImage(
+    getSignatureField(source, existingCertificate, "authorizedSignatureImage", null),
+    authorizedSignatureMode,
+    "Authorized Person"
+  );
+
+  return {
+    drSignatureName: getSignatureField(source, existingCertificate, "drSignatureName", "Dr. Niraj Shah"),
+    drSignatureMode,
+    drSignatureImage,
+    authorizedSignatureName: getSignatureField(source, existingCertificate, "authorizedSignatureName", "Authorized Person"),
+    authorizedSignatureMode,
+    authorizedSignatureImage,
+    signatureLayout,
+    singleSignaturePosition
+  };
+};
+
+const addSignatureDefaults = (certificate) => {
+  const certificateData = certificate.toObject ? certificate.toObject() : certificate;
+
+  return {
+    ...certificateData,
+    drSignatureName: certificateData.drSignatureName ?? "Dr. Niraj Shah",
+    drSignatureMode: certificateData.drSignatureMode ?? "blank",
+    drSignatureImage: certificateData.drSignatureImage ?? null,
+    authorizedSignatureName: certificateData.authorizedSignatureName ?? "Authorized Person",
+    authorizedSignatureMode: certificateData.authorizedSignatureMode ?? "blank",
+    authorizedSignatureImage: certificateData.authorizedSignatureImage ?? null,
+    signatureLayout: certificateData.signatureLayout ?? "both",
+    singleSignaturePosition: certificateData.singleSignaturePosition ?? "center"
+  };
+};
+
+const sendCertificateError = (error, res, fallbackMessage) => {
+  if (error instanceof SignatureConfigurationError || error.name === "ValidationError") {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+
+  return res.status(500).json({
+    success: false,
+    message: fallbackMessage
+  });
+};
+
 export const createCertificate = async (req, res) => {
   try {
     if (!isDatabaseConnected()) {
@@ -53,10 +161,11 @@ export const createCertificate = async (req, res) => {
       });
     }
 
+    const signatureConfiguration = getSignatureConfiguration(req.body);
     const certificateId = await generateCertificateId();
     const certificate = await Certificate.create({
       ...req.body,
-      authorizedSignatureName: req.body.authorizedSignatureName || "Authorized Person",
+      ...signatureConfiguration,
       generationType: "Single",
       status: "Generated",
       certificateId
@@ -65,13 +174,10 @@ export const createCertificate = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Certificate generated successfully",
-      data: certificate
+      data: addSignatureDefaults(certificate)
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to generate certificate"
-    });
+    return sendCertificateError(error, res, "Failed to generate certificate");
   }
 };
 
@@ -84,6 +190,7 @@ export const saveDraftCertificate = async (req, res) => {
       });
     }
 
+    const signatureConfiguration = getSignatureConfiguration(req.body);
     const certificateId = req.body.certificateId || await generateCertificateId();
     const certificate = await Certificate.create({
       participantName: req.body.participantName || "",
@@ -94,7 +201,7 @@ export const saveDraftCertificate = async (req, res) => {
       eventDate: req.body.eventDate || "",
       description: req.body.description || "",
       templateStyle: req.body.templateStyle || "",
-      authorizedSignatureName: req.body.authorizedSignatureName || "Authorized Person",
+      ...signatureConfiguration,
       certificateId,
       status: "Draft",
       generationType: "Single"
@@ -103,13 +210,10 @@ export const saveDraftCertificate = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Certificate draft saved successfully",
-      data: certificate
+      data: addSignatureDefaults(certificate)
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to save certificate draft"
-    });
+    return sendCertificateError(error, res, "Failed to save certificate draft");
   }
 };
 
@@ -163,6 +267,7 @@ export const bulkCreateCertificates = async (req, res) => {
       });
     }
 
+    const signatureConfiguration = getSignatureConfiguration(commonDetails);
     const nextCertificateNumber = await getNextCertificateNumber();
     const certificatesToSave = participants.map((participant, index) => ({
       participantName: participant.participantName.trim(),
@@ -173,7 +278,7 @@ export const bulkCreateCertificates = async (req, res) => {
       eventDate: commonDetails.eventDate,
       description: commonDetails.description || "",
       templateStyle: commonDetails.templateStyle,
-      authorizedSignatureName: commonDetails.authorizedSignatureName || "Authorized Person",
+      ...signatureConfiguration,
       certificateId: createCertificateIdFromNumber(nextCertificateNumber + index),
       generationType: "Bulk"
     }));
@@ -184,13 +289,10 @@ export const bulkCreateCertificates = async (req, res) => {
       success: true,
       message: "Bulk certificates generated successfully",
       count: savedCertificates.length,
-      data: savedCertificates
+      data: savedCertificates.map(addSignatureDefaults)
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to generate bulk certificates"
-    });
+    return sendCertificateError(error, res, "Failed to generate bulk certificates");
   }
 };
 
@@ -208,7 +310,7 @@ export const getCertificates = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: certificates.length,
-      data: certificates
+      data: certificates.map(addSignatureDefaults)
     });
   } catch (error) {
     return res.status(500).json({
@@ -239,7 +341,7 @@ export const getCertificateById = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Certificate fetched successfully",
-      data: certificate
+      data: addSignatureDefaults(certificate)
     });
   } catch (error) {
     return res.status(500).json({
@@ -267,8 +369,10 @@ export const updateCertificate = async (req, res) => {
       });
     }
 
+    const signatureConfiguration = getSignatureConfiguration(req.body, existingCertificate);
     const updateData = {
       ...req.body,
+      ...signatureConfiguration,
       certificateId: existingCertificate.certificateId || req.body.certificateId || await generateCertificateId(),
       status: req.body.status || existingCertificate.status
     };
@@ -281,13 +385,10 @@ export const updateCertificate = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Certificate updated successfully",
-      data: updatedCertificate
+      data: addSignatureDefaults(updatedCertificate)
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update certificate"
-    });
+    return sendCertificateError(error, res, "Failed to update certificate");
   }
 };
 

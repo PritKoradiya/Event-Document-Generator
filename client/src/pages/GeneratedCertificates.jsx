@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import CertificatePreview from "../components/CertificatePreview.jsx";
+import SignatureUploadControl from "../components/certificate/SignatureUploadControl.jsx";
 import templateData from "../data/templateData.js";
 import { deleteCertificate, getCertificates, updateCertificate } from "../services/certificateApi.js";
 import downloadCertificatePdf from "../utils/downloadCertificatePdf.js";
@@ -35,7 +36,14 @@ const createEditData = (certificate) => ({
   eventDate: certificate?.eventDate || "",
   description: certificate?.description || "",
   templateStyle: certificate?.templateStyle || "",
+  drSignatureName: certificate?.drSignatureName || "Dr. Niraj Shah",
+  drSignatureMode: certificate?.drSignatureMode || "blank",
+  drSignatureImage: certificate?.drSignatureImage || null,
   authorizedSignatureName: certificate?.authorizedSignatureName || "Authorized Person",
+  authorizedSignatureMode: certificate?.authorizedSignatureMode || "blank",
+  authorizedSignatureImage: certificate?.authorizedSignatureImage || null,
+  signatureLayout: certificate?.signatureLayout || "both",
+  singleSignaturePosition: certificate?.singleSignaturePosition || "center",
   status: certificate?.status || "Generated"
 });
 
@@ -231,6 +239,20 @@ function GeneratedCertificates() {
     );
   }
 
+  const normalizedSelectedCertificate = selectedCertificate
+    ? {
+        ...selectedCertificate,
+        drSignatureName: selectedCertificate.drSignatureName || "Dr. Niraj Shah",
+        drSignatureMode: selectedCertificate.drSignatureMode || "blank",
+        drSignatureImage: selectedCertificate.drSignatureImage || null,
+        authorizedSignatureName: selectedCertificate.authorizedSignatureName || "Authorized Person",
+        authorizedSignatureMode: selectedCertificate.authorizedSignatureMode || "blank",
+        authorizedSignatureImage: selectedCertificate.authorizedSignatureImage || null,
+        signatureLayout: selectedCertificate.signatureLayout || "both",
+        singleSignaturePosition: selectedCertificate.singleSignaturePosition || "center"
+      }
+    : null;
+
   return (
     <section className="space-y-8 pb-10">
       {/* Breadcrumb Navigation */}
@@ -404,13 +426,13 @@ function GeneratedCertificates() {
       )}
 
       {/* Selected Certificate Preview Card */}
-      {selectedCertificate && (
+      {normalizedSelectedCertificate && (
         <section className="rounded-3xl border border-slate-200/90 bg-white/90 p-6 sm:p-8 shadow-xl backdrop-blur-md space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
             <div>
               <span className="text-xs font-black uppercase tracking-wider text-blue-600">Selected Record View</span>
               <h3 className="text-xl font-black text-slate-950 font-sans">
-                {selectedCertificate.participantName || "Draft Participant"} — {selectedCertificate.certificateId}
+                {normalizedSelectedCertificate.participantName || "Draft Participant"} — {normalizedSelectedCertificate.certificateId}
               </h3>
             </div>
             <button
@@ -426,7 +448,7 @@ function GeneratedCertificates() {
             <div className="overflow-hidden">
               <CertificatePreview
                 ref={selectedSvgRef}
-                certificateData={selectedCertificate}
+                certificateData={normalizedSelectedCertificate}
                 previewId="generated-certificate-preview-svg"
               />
             </div>
@@ -437,27 +459,27 @@ function GeneratedCertificates() {
               </p>
               <div>
                 <span className="text-slate-400 font-bold block">Participant:</span>
-                <span className="font-bold text-slate-800">{selectedCertificate.participantName}</span>
+                <span className="font-bold text-slate-800">{normalizedSelectedCertificate.participantName}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-bold block">Organization:</span>
-                <span className="font-semibold text-slate-700">{selectedCertificate.organizationName}</span>
+                <span className="font-semibold text-slate-700">{normalizedSelectedCertificate.organizationName}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-bold block">Event:</span>
-                <span className="font-semibold text-slate-700">{selectedCertificate.eventName}</span>
+                <span className="font-semibold text-slate-700">{normalizedSelectedCertificate.eventName}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-bold block">Event Date:</span>
-                <span className="font-semibold text-slate-700">{selectedCertificate.eventDate}</span>
+                <span className="font-semibold text-slate-700">{normalizedSelectedCertificate.eventDate}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-bold block">Template Style:</span>
-                <span className="font-semibold text-slate-700">{selectedCertificate.templateStyle}</span>
+                <span className="font-semibold text-slate-700">{normalizedSelectedCertificate.templateStyle}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-bold block">Record Created:</span>
-                <span className="font-semibold text-slate-700">{formatDate(selectedCertificate.createdAt)}</span>
+                <span className="font-semibold text-slate-700">{formatDate(normalizedSelectedCertificate.createdAt)}</span>
               </div>
             </div>
           </div>
@@ -467,7 +489,7 @@ function GeneratedCertificates() {
       {/* Edit Certificate Modal Overlay */}
       {editingCertificate && (
         <div className="app-glass-modal-overlay fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-          <div className="app-glass-modal w-full max-w-3xl overflow-hidden">
+          <div className="app-glass-modal w-full max-w-3xl overflow-hidden my-8">
             <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black text-slate-950">Edit Certificate</h3>
@@ -482,62 +504,188 @@ function GeneratedCertificates() {
               </button>
             </div>
 
-            <form className="p-6 grid gap-4 sm:grid-cols-2" onSubmit={(e) => e.preventDefault()}>
-              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Participant Name
-                <input className={inputClass} name="participantName" value={editData.participantName} onChange={handleEditChange} />
-              </label>
-              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Organization Name
-                <input className={inputClass} name="organizationName" value={editData.organizationName} onChange={handleEditChange} />
-              </label>
-              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Event Name
-                <input className={inputClass} name="eventName" value={editData.eventName} onChange={handleEditChange} />
-              </label>
-              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Certificate Category
-                <select className={inputClass} name="certificateCategory" value={editData.certificateCategory} onChange={handleEditChange}>
-                  <option value="">Select Category</option>
-                  {categoryOptions.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Certificate Title
-                <input className={inputClass} name="certificateTitle" value={editData.certificateTitle} onChange={handleEditChange} />
-              </label>
-              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Event Date
-                <input className={inputClass} type="date" name="eventDate" value={editData.eventDate} onChange={handleEditChange} />
-              </label>
-              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Template Style
-                <select className={inputClass} name="templateStyle" value={editData.templateStyle} onChange={handleEditChange}>
-                  <option value="">Select Template</option>
-                  {templateData.map((tpl) => (
-                    <option key={tpl.id} value={tpl.name}>
-                      {tpl.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                Status
-                <select className={inputClass} name="status" value={editData.status} onChange={handleEditChange}>
-                  <option value="Generated">Generated</option>
-                  <option value="Draft">Draft</option>
-                </select>
-              </label>
+            <form className="p-6 space-y-6 max-h-[80vh] overflow-y-auto" onSubmit={(e) => e.preventDefault()}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Participant Name
+                  <input className={inputClass} name="participantName" value={editData.participantName} onChange={handleEditChange} />
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Organization Name
+                  <input className={inputClass} name="organizationName" value={editData.organizationName} onChange={handleEditChange} />
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Event Name
+                  <input className={inputClass} name="eventName" value={editData.eventName} onChange={handleEditChange} />
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Certificate Category
+                  <select className={inputClass} name="certificateCategory" value={editData.certificateCategory} onChange={handleEditChange}>
+                    <option value="">Select Category</option>
+                    {categoryOptions.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Certificate Title
+                  <input className={inputClass} name="certificateTitle" value={editData.certificateTitle} onChange={handleEditChange} />
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Event Date
+                  <input className={inputClass} type="date" name="eventDate" value={editData.eventDate} onChange={handleEditChange} />
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Template Style
+                  <select className={inputClass} name="templateStyle" value={editData.templateStyle} onChange={handleEditChange}>
+                    <option value="">Select Template</option>
+                    {templateData.map((tpl) => (
+                      <option key={tpl.id} value={tpl.name}>
+                        {tpl.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Status
+                  <select className={inputClass} name="status" value={editData.status} onChange={handleEditChange}>
+                    <option value="Generated">Generated</option>
+                    <option value="Draft">Draft</option>
+                  </select>
+                </label>
+              </div>
 
-              <div className="sm:col-span-2 pt-4 border-t border-slate-100 flex justify-end gap-3">
+              {/* Signature Settings inside Edit Modal */}
+              <div className="border-t border-slate-100 pt-5 space-y-4">
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Signature Settings</h4>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                    Who should sign?
+                  </label>
+                  <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setEditData((prev) => ({ ...prev, signatureLayout: "dr-only" }))}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition ${
+                        editData.signatureLayout === "dr-only" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600"
+                      }`}
+                    >
+                      Dr. Niraj Shah only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditData((prev) => ({ ...prev, signatureLayout: "authorized-only" }))}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition ${
+                        editData.signatureLayout === "authorized-only" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600"
+                      }`}
+                    >
+                      Authorized Person only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditData((prev) => ({ ...prev, signatureLayout: "both" }))}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition ${
+                        editData.signatureLayout === "both" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600"
+                      }`}
+                    >
+                      Both
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {(editData.signatureLayout === "both" || editData.signatureLayout === "dr-only") && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                      <label className="grid gap-1 text-xs font-bold uppercase tracking-wider text-slate-600">
+                        Dr. Niraj Shah Name
+                        <input className={inputClass} name="drSignatureName" value={editData.drSignatureName} onChange={handleEditChange} />
+                      </label>
+                      <SignatureUploadControl
+                        label="Signature Type"
+                        personName={editData.drSignatureName || "Dr. Niraj Shah"}
+                        mode={editData.drSignatureMode}
+                        image={editData.drSignatureImage}
+                        onModeChange={(mode) => setEditData((prev) => ({ ...prev, drSignatureMode: mode }))}
+                        onImageChange={(imageDataUrl) =>
+                          setEditData((prev) => ({
+                            ...prev,
+                            drSignatureMode: "image",
+                            drSignatureImage: imageDataUrl
+                          }))
+                        }
+                        onRemoveImage={() =>
+                          setEditData((prev) => ({
+                            ...prev,
+                            drSignatureMode: "blank",
+                            drSignatureImage: null
+                          }))
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {(editData.signatureLayout === "both" || editData.signatureLayout === "authorized-only") && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                      <label className="grid gap-1 text-xs font-bold uppercase tracking-wider text-slate-600">
+                        Authorized Person Name
+                        <input className={inputClass} name="authorizedSignatureName" value={editData.authorizedSignatureName} onChange={handleEditChange} />
+                      </label>
+                      <SignatureUploadControl
+                        label="Signature Type"
+                        personName={editData.authorizedSignatureName || "Authorized Person"}
+                        mode={editData.authorizedSignatureMode}
+                        image={editData.authorizedSignatureImage}
+                        onModeChange={(mode) => setEditData((prev) => ({ ...prev, authorizedSignatureMode: mode }))}
+                        onImageChange={(imageDataUrl) =>
+                          setEditData((prev) => ({
+                            ...prev,
+                            authorizedSignatureMode: "image",
+                            authorizedSignatureImage: imageDataUrl
+                          }))
+                        }
+                        onRemoveImage={() =>
+                          setEditData((prev) => ({
+                            ...prev,
+                            authorizedSignatureMode: "blank",
+                            authorizedSignatureImage: null
+                          }))
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {(editData.signatureLayout === "dr-only" || editData.signatureLayout === "authorized-only") && (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 space-y-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Signature Position
+                    </label>
+                    <div className="inline-flex rounded-lg bg-white p-1 border border-slate-200">
+                      {["left", "center", "right"].map((pos) => (
+                        <button
+                          key={pos}
+                          type="button"
+                          onClick={() => setEditData((prev) => ({ ...prev, singleSignaturePosition: pos }))}
+                          className={`rounded px-3 py-1 text-xs font-bold capitalize transition ${
+                            editData.singleSignaturePosition === pos ? "bg-blue-600 text-white" : "text-slate-600"
+                          }`}
+                        >
+                          {pos}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setEditingCertificate(null)}
-                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700"
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
@@ -559,3 +707,4 @@ function GeneratedCertificates() {
 }
 
 export default GeneratedCertificates;
+

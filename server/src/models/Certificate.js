@@ -38,6 +38,39 @@ const certificateSchema = new mongoose.Schema(
       default: "Authorized Person",
       trim: true
     },
+    drSignatureName: {
+      type: String,
+      default: "Dr. Niraj Shah",
+      trim: true
+    },
+    drSignatureMode: {
+      type: String,
+      enum: ["blank", "image"],
+      default: "blank"
+    },
+    drSignatureImage: {
+      type: String,
+      default: null
+    },
+    authorizedSignatureMode: {
+      type: String,
+      enum: ["blank", "image"],
+      default: "blank"
+    },
+    authorizedSignatureImage: {
+      type: String,
+      default: null
+    },
+    signatureLayout: {
+      type: String,
+      enum: ["dr-only", "authorized-only", "both"],
+      default: "both"
+    },
+    singleSignaturePosition: {
+      type: String,
+      enum: ["left", "center", "right"],
+      default: "center"
+    },
     certificateId: {
       type: String,
       unique: true

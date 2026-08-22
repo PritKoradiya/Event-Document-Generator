@@ -25,8 +25,15 @@ const CertificateSvg = forwardRef(function CertificateSvg(
     description = "for successfully attending and participating in the technical sessions and workshops.",
     templateStyle = "Classic Certificate",
     certificateId = "CERT-2026-0001",
-    authorizedSignatureName = "Dr. Jayshri Patil",
-    deanName = "Dr. Niraj Shah",
+    authorizedSignatureName = "Authorized Person",
+    authorizedSignatureMode = "blank",
+    authorizedSignatureImage = null,
+    drSignatureName = "Dr. Niraj Shah",
+    drSignatureMode = "blank",
+    drSignatureImage = null,
+    deanName,
+    signatureLayout = "both",
+    singleSignaturePosition = "center",
     designKey = "",
     backgroundImage = "",
     backgroundMode = "stretch"
@@ -77,7 +84,14 @@ const CertificateSvg = forwardRef(function CertificateSvg(
         description={description}
         certificateId={certificateId}
         authorizedSignatureName={authorizedSignatureName}
+        authorizedSignatureMode={authorizedSignatureMode}
+        authorizedSignatureImage={authorizedSignatureImage}
+        drSignatureName={drSignatureName}
+        drSignatureMode={drSignatureMode}
+        drSignatureImage={drSignatureImage}
         deanName={deanName}
+        signatureLayout={signatureLayout}
+        singleSignaturePosition={singleSignaturePosition}
         theme={mergedTemplate.theme || {}}
       />
     </svg>

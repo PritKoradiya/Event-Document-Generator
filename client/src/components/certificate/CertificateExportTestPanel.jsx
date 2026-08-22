@@ -16,7 +16,7 @@ const testPresets = [
       description: "For successfully participating in the technical event.",
       templateStyle: "Classic Certificate",
       certificateId: "TEST-0001",
-      authorizedSignatureName: "Dr. Jayshri Patil"
+      authorizedSignatureName: "Authorized Person"
     }
   },
   {
@@ -31,7 +31,7 @@ const testPresets = [
       description: "For outstanding performance and research contribution.",
       templateStyle: "Academic Seal Certificate",
       certificateId: "TEST-0002",
-      authorizedSignatureName: "Dr. Jayshri Patil"
+      authorizedSignatureName: "Authorized Person"
     }
   },
   {
@@ -46,7 +46,7 @@ const testPresets = [
       description: "For valuable contributions as a keynote speaker.",
       templateStyle: "Modern Wave Certificate",
       certificateId: "TEST-0003",
-      authorizedSignatureName: "Dr. Jayshri Patil"
+      authorizedSignatureName: "Authorized Person"
     }
   },
   {
@@ -61,7 +61,7 @@ const testPresets = [
       description: "For successfully attending, presenting research papers, and actively participating in all hands-on technical sessions, lab demonstrations, and interactive panel discussions conducted throughout the five-day intensive workshop.",
       templateStyle: "Gold Corner Certificate",
       certificateId: "TEST-0004",
-      authorizedSignatureName: "Dr. Jayshri Patil"
+      authorizedSignatureName: "Authorized Person"
     }
   },
   {
@@ -76,7 +76,7 @@ const testPresets = [
       description: "For completing the advanced UI/UX design masterclass.",
       templateStyle: "Royal Blue Border Certificate",
       certificateId: "TEST-0005",
-      authorizedSignatureName: "Dr. Jayshri Patil"
+      authorizedSignatureName: "Authorized Person"
     }
   },
   {
@@ -91,7 +91,7 @@ const testPresets = [
       description: "First place award winner in the 24-hour coding challenge.",
       templateStyle: "Dark Luxury Certificate",
       certificateId: "TEST-0006",
-      authorizedSignatureName: "Dr. Jayshri Patil"
+      authorizedSignatureName: "Authorized Person"
     }
   },
   {
@@ -106,7 +106,7 @@ const testPresets = [
       description: "In recognition of distinguished service, leadership, and exemplary dedication to academic excellence.",
       templateStyle: "Classic Appreciation Certificate",
       certificateId: "TEST-0007",
-      authorizedSignatureName: "Dr. Jayshri Patil"
+      authorizedSignatureName: "Authorized Person"
     }
   }
 ];

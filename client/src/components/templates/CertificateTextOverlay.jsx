@@ -128,30 +128,22 @@ function CertificateTextOverlay({
       </p>
 
       <footer
-        className={`certificate-footer-safe absolute bottom-[7%] left-[11%] right-[11%] grid grid-cols-3 items-center gap-5 border-t pt-4 ${theme.footerLine} ${theme.main}`}
+        className={`certificate-footer-safe absolute bottom-[7%] left-[11%] right-[11%] flex items-center justify-between border-t pt-4 ${theme.footerLine} ${theme.main}`}
       >
         <div className="min-w-0 text-left">
-          <p className={`signature-font truncate text-[clamp(1rem,1.7vw,1.45rem)] leading-none ${theme.accent}`}>
+          <div className={`h-px w-full max-w-44 ${theme.line}`} />
+          <p className={`mt-1.5 truncate font-black uppercase tracking-wide ${theme.main}`}>
             {displaySignature}
           </p>
-          <div className={`mt-2 h-px w-full max-w-44 ${theme.line}`} />
-          <p className={`mt-1 truncate font-black uppercase tracking-wide ${theme.muted}`}>
+          <p className={`mt-0.5 truncate text-xs font-semibold ${theme.muted}`}>
             Authorized Signature
           </p>
         </div>
 
-        <div className="flex justify-center">
-          <div className={`flex aspect-square w-[clamp(50px,6.4vw,78px)] shrink-0 items-center justify-center rounded-full border-2 px-2 text-center text-[clamp(7px,0.75vw,10px)] font-black uppercase leading-tight ${theme.seal}`}>
-            Official
-            <br />
-            Seal
-          </div>
-        </div>
-
-        <div className="min-w-0 text-right">
-          <p className={`truncate font-black uppercase tracking-wide ${theme.muted}`}>Certificate ID</p>
-          <p className={`truncate font-black ${theme.main}`}>{displayCertificateId}</p>
-          <p className={`mt-1 truncate font-semibold ${theme.muted}`}>Issue Date: {issueDate}</p>
+        <div className="min-w-0 text-center">
+          <p className={`truncate font-black uppercase tracking-wide text-xs ${theme.muted}`}>Certificate ID</p>
+          <p className={`truncate font-mono font-bold ${theme.main}`}>{displayCertificateId}</p>
+          <p className={`mt-0.5 truncate text-[11px] font-semibold ${theme.muted}`}>Issue Date: {issueDate}</p>
         </div>
       </footer>
     </div>
