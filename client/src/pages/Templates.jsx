@@ -137,23 +137,16 @@ function PremiumCertificateMiniPreview({ template }) {
 }
 
 function ImageBackgroundMiniPreview({ template }) {
-  const isLightText = template.textTheme === "light";
-
   return (
-    <div className="relative aspect-[1.414/1] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-xs">
+    <div className="relative aspect-[1.414/1] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-xs group-hover:shadow-md transition-shadow">
       <img
         src={template.backgroundImage}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
+        alt={template.name}
+        className="h-full w-full object-cover"
         draggable={false}
       />
       <div className="absolute left-3 top-3 rounded-full bg-slate-950/80 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white backdrop-blur-md">
         Image Background
-      </div>
-      <div className={`relative z-10 flex h-full flex-col items-center justify-center px-[12%] text-center ${isLightText ? "text-white" : "text-slate-950"}`}>
-        <p className="text-base font-black uppercase leading-tight">Certificate</p>
-        <div className={`mt-1.5 h-1 w-16 rounded-full ${isLightText ? "bg-amber-200" : "bg-blue-800"}`} />
-        <p className="mt-2 max-w-full truncate font-serif text-xl font-black">Participant Name</p>
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ export const inlineSvgImages = async (svgClone) => {
       }
 
       try {
-        const response = await fetch(href);
+        const response = await fetch(encodeURI(href));
         const blob = await response.blob();
         const reader = new FileReader();
 

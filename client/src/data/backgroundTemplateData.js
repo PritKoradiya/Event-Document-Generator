@@ -5,6 +5,28 @@ const defaultSafeArea = {
 
 const backgroundTemplateData = [
   {
+    id: "ppsu",
+    name: "PPSU Certificate",
+    category: "Academic",
+    description: "Official PPSU School of Engineering certificate design",
+    type: "certificate",
+    designType: "image-background",
+    backgroundImage: "/certificate-backgrounds/PPSU.png",
+    textTheme: "dark",
+    badgeClass: "bg-blue-100 text-blue-900"
+  },
+  {
+    id: "p-p-savani-university",
+    name: "P P Savani University Certificate",
+    category: "Academic",
+    description: "Official P P Savani University certificate design",
+    type: "certificate",
+    designType: "image-background",
+    backgroundImage: "/certificate-backgrounds/P P Savani University.png",
+    textTheme: "dark",
+    badgeClass: "bg-blue-100 text-blue-900"
+  },
+  {
     id: "bg-template-1",
     name: "Royal Blue Border Certificate",
     category: "Academic",
