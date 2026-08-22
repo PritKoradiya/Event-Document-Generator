@@ -39,6 +39,7 @@ const signatureModes = ["blank", "image"];
 const signatureLayouts = ["dr-only", "authorized-only", "both"];
 const singleSignaturePositions = ["left", "center", "right"];
 const maxSignatureImageBytes = 2 * 1024 * 1024;
+const maxBulkParticipants = 1000;
 const legacySignatureFields = [
   "drSignatureName",
   "drSignatureMode",
@@ -226,6 +227,44 @@ const sendCertificateError = (error, res, fallbackMessage) => {
   });
 };
 
+const copySignatureConfiguration = (signatureConfiguration) => ({
+  ...signatureConfiguration,
+  signatureBoxes: signatureConfiguration.signatureBoxes.map((box) => ({ ...box }))
+});
+
+const validateBulkParticipants = (participants) => {
+  if (!Array.isArray(participants) || participants.length === 0) {
+    throw new SignatureConfigurationError("Participants must be a non-empty array.");
+  }
+
+  if (participants.length > maxBulkParticipants) {
+    throw new SignatureConfigurationError("Maximum 1000 participants can be generated at once.");
+  }
+
+  return participants.map((participant) => {
+    if (!participant || typeof participant !== "object" || Array.isArray(participant)) {
+      throw new SignatureConfigurationError("Each participant must be an object.");
+    }
+
+    if (hasOwnProperty(participant, "signatureBoxes")) {
+      throw new SignatureConfigurationError("signatureBoxes must be provided only in commonDetails.");
+    }
+
+    if (typeof participant.participantName !== "string" || participant.participantName.trim().length === 0) {
+      throw new SignatureConfigurationError("Participant name is required.");
+    }
+
+    if (participant.organizationName !== undefined && participant.organizationName !== null && typeof participant.organizationName !== "string") {
+      throw new SignatureConfigurationError("Participant organization name must be a string.");
+    }
+
+    return {
+      participantName: participant.participantName.trim(),
+      organizationName: participant.organizationName?.trim()
+    };
+  });
+};
+
 export const createCertificate = async (req, res) => {
   try {
     if (!isDatabaseConnected()) {
@@ -311,23 +350,7 @@ export const bulkCreateCertificates = async (req, res) => {
 
     const { participants, commonDetails } = req.body;
 
-    if (!Array.isArray(participants) || participants.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Participants must be a non-empty array."
-      });
-    }
-
-    const participantWithoutName = participants.find((participant) => !participant.participantName);
-
-    if (participantWithoutName) {
-      return res.status(400).json({
-        success: false,
-        message: "Participant name is required for every participant."
-      });
-    }
-
-    if (!commonDetails || typeof commonDetails !== "object") {
+    if (!commonDetails || typeof commonDetails !== "object" || Array.isArray(commonDetails)) {
       return res.status(400).json({
         success: false,
         message: "Common certificate details are required."
@@ -350,21 +373,46 @@ export const bulkCreateCertificates = async (req, res) => {
       });
     }
 
+    const validatedParticipants = validateBulkParticipants(participants);
+
+    // Organization fallback order:
+    // 1. commonDetails.organizationName
+    // 2. legacy participant.organizationName
+    // 3. validation error if organization name is missing overall
+    const commonOrg = typeof commonDetails.organizationName === "string" ? commonDetails.organizationName.trim() : "";
+
+    const hasMissingOrg = validatedParticipants.some(
+      (p) => !commonOrg && (!p.organizationName || p.organizationName.trim().length === 0)
+    );
+
+    if (hasMissingOrg) {
+      return res.status(400).json({
+        success: false,
+        message: "Organization name is required."
+      });
+    }
+
     const signatureConfiguration = getSignatureConfiguration(commonDetails);
     const nextCertificateNumber = await getNextCertificateNumber();
-    const certificatesToSave = participants.map((participant, index) => ({
-      participantName: participant.participantName.trim(),
-      organizationName: (participant.organizationName || commonDetails.organizationName || "Organization Name").trim(),
-      eventName: commonDetails.eventName,
-      certificateCategory: commonDetails.certificateCategory,
-      certificateTitle: commonDetails.certificateTitle,
-      eventDate: commonDetails.eventDate,
-      description: commonDetails.description || "",
-      templateStyle: commonDetails.templateStyle,
-      ...signatureConfiguration,
-      certificateId: createCertificateIdFromNumber(nextCertificateNumber + index),
-      generationType: "Bulk"
-    }));
+
+    const certificatesToSave = validatedParticipants.map((participant, index) => {
+      const organizationName = commonOrg || participant.organizationName || "Organization Name";
+
+      return {
+        participantName: participant.participantName,
+        organizationName,
+        eventName: commonDetails.eventName,
+        certificateCategory: commonDetails.certificateCategory,
+        certificateTitle: commonDetails.certificateTitle,
+        eventDate: commonDetails.eventDate,
+        description: commonDetails.description || "",
+        templateStyle: commonDetails.templateStyle,
+        ...copySignatureConfiguration(signatureConfiguration),
+        certificateId: createCertificateIdFromNumber(nextCertificateNumber + index),
+        generationType: "Bulk",
+        status: "Generated"
+      };
+    });
 
     const savedCertificates = await Certificate.insertMany(certificatesToSave);
 

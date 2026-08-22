@@ -1,10 +1,25 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const handleResponse = async (response) => {
-  const result = await response.json();
+  if (response.status === 413) {
+    throw new Error("Bulk request is too large. Please use smaller signature images or generate a smaller batch.");
+  }
 
-  if (!response.ok) {
-    throw new Error(result.message || "Something went wrong. Please try again.");
+  let result;
+  try {
+    result = await response.json();
+  } catch (e) {
+    if (!response.ok) {
+      if (response.status === 500) {
+        throw new Error("Server error while generating certificates. Please try again.");
+      }
+      throw new Error(`Server returned error code ${response.status}. Please try again.`);
+    }
+    throw new Error("Invalid response format received from server.");
+  }
+
+  if (!response.ok || (result && result.success === false)) {
+    throw new Error(result?.message || `Server returned error code ${response.status}. Please try again.`);
   }
 
   return result;
