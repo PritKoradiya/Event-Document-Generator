@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { generateCertificatePdfBlob, safeFileName } from "./downloadCertificatePdf.js";
 import { getPayloadSizeMb } from "./getPayloadSizeMb.js";
+import { normalizeEmail, isValidEmail } from "./emailUtils.js";
 
 export const BULK_REQUEST_CHUNK_SIZE = 50;
 export const MAX_PARTICIPANTS_LIMIT = 1000;
@@ -65,8 +66,8 @@ export const buildCleanCommonDetails = (commonDetails = {}) => {
 };
 
 /**
- * Parses raw CSV text into a validated participant list.
- * Supports standard CSVs with header "participantName" or legacy columns.
+ * Parses raw CSV text into a validated participant list with email support.
+ * Supports standard CSVs with headers: participantName, fullName, name, email, recipientEmail, emailAddress.
  */
 export const parseParticipantCsv = (csvText) => {
   if (!csvText || typeof csvText !== "string") {
@@ -92,27 +93,66 @@ export const parseParticipantCsv = (csvText) => {
 
   // Find first non-empty line to check for header
   let headerRowIndex = -1;
-  let targetColIndex = 0;
+  let targetNameColIndex = 0;
+  let targetEmailColIndex = -1;
   let hasHeader = false;
 
   for (let i = 0; i < rawLines.length; i++) {
     const trimmed = rawLines[i].trim();
     if (trimmed.length > 0) {
       const cols = trimmed.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
-      const matchIndex = cols.findIndex((col) => {
+      
+      // Name headers priority: participantName > fullName > name > studentName / participant / student
+      const nameColIndex = cols.findIndex((col) => {
+        const lower = col.toLowerCase().replace(/[\s_-]/g, "");
+        return lower === "participantname";
+      });
+      const fullNameColIndex = cols.findIndex((col) => {
+        const lower = col.toLowerCase().replace(/[\s_-]/g, "");
+        return lower === "fullname";
+      });
+      const generalNameColIndex = cols.findIndex((col) => {
         const lower = col.toLowerCase().replace(/[\s_-]/g, "");
         return (
-          lower === "participantname" ||
+          lower === "name" ||
           lower === "participant" ||
           lower === "studentname" ||
-          lower === "student" ||
-          lower === "name" ||
-          lower === "fullname"
+          lower === "student"
         );
       });
-      if (matchIndex !== -1) {
+
+      const matchedNameIndex =
+        nameColIndex !== -1
+          ? nameColIndex
+          : fullNameColIndex !== -1
+          ? fullNameColIndex
+          : generalNameColIndex;
+
+      // Email headers priority: email > recipientEmail > emailAddress
+      const emailColIndex = cols.findIndex((col) => {
+        const lower = col.toLowerCase().replace(/[\s_-]/g, "");
+        return lower === "email";
+      });
+      const recipientEmailColIndex = cols.findIndex((col) => {
+        const lower = col.toLowerCase().replace(/[\s_-]/g, "");
+        return lower === "recipientemail";
+      });
+      const emailAddressColIndex = cols.findIndex((col) => {
+        const lower = col.toLowerCase().replace(/[\s_-]/g, "");
+        return lower === "emailaddress";
+      });
+
+      const matchedEmailIndex =
+        emailColIndex !== -1
+          ? emailColIndex
+          : recipientEmailColIndex !== -1
+          ? recipientEmailColIndex
+          : emailAddressColIndex;
+
+      if (matchedNameIndex !== -1 || matchedEmailIndex !== -1) {
         headerRowIndex = i;
-        targetColIndex = matchIndex;
+        targetNameColIndex = matchedNameIndex !== -1 ? matchedNameIndex : 0;
+        targetEmailColIndex = matchedEmailIndex;
         hasHeader = true;
       }
       break;
@@ -134,25 +174,40 @@ export const parseParticipantCsv = (csvText) => {
 
     const rowNumber = i + 1;
     const cols = rawLine.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
-    const rawName = cols[targetColIndex] !== undefined ? cols[targetColIndex] : (cols[0] || "");
+    const rawName = cols[targetNameColIndex] !== undefined ? cols[targetNameColIndex] : (cols[0] || "");
     const trimmedName = rawName.trim();
 
-    if (!trimmedName) {
-      errors.push(`CSV Row ${rowNumber}: Participant name is missing.`);
-      parsedParticipants.push({
-        id: `csv-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
-        participantName: "",
-        rowNumber,
-        isInvalid: true
-      });
-    } else {
-      parsedParticipants.push({
-        id: `csv-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
-        participantName: trimmedName,
-        rowNumber,
-        isInvalid: false
-      });
+    // If email column was identified in header, use it; otherwise, if there are 2 columns and no explicit header, column 1 might be email
+    let rawEmail = "";
+    if (targetEmailColIndex !== -1 && cols[targetEmailColIndex] !== undefined) {
+      rawEmail = cols[targetEmailColIndex];
+    } else if (!hasHeader && cols.length >= 2) {
+      rawEmail = cols[1];
     }
+
+    const normalizedEmail = normalizeEmail(rawEmail);
+
+    let isInvalid = false;
+    let invalidReason = "";
+
+    if (!trimmedName) {
+      isInvalid = true;
+      invalidReason = "Participant name is missing.";
+      errors.push(`CSV Row ${rowNumber}: Participant name is missing.`);
+    } else if (normalizedEmail.length > 0 && !isValidEmail(normalizedEmail)) {
+      isInvalid = true;
+      invalidReason = "Invalid email format.";
+      errors.push(`CSV Row ${rowNumber}: Invalid email format ("${rawEmail}").`);
+    }
+
+    parsedParticipants.push({
+      id: `csv-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+      participantName: trimmedName,
+      email: normalizedEmail,
+      rowNumber,
+      isInvalid,
+      invalidReason
+    });
   }
 
   const validCount = parsedParticipants.filter((p) => !p.isInvalid && p.participantName.length > 0).length;
@@ -168,7 +223,8 @@ export const parseParticipantCsv = (csvText) => {
 };
 
 /**
- * Parses manual line-by-line participant names.
+ * Parses manual line-by-line participant names and optional emails.
+ * Supports "Pritkumar Koradiya" or "Pritkumar Koradiya, 23se02ce053@ppsu.ac.in".
  */
 export const parseManualParticipantList = (manualText) => {
   if (!manualText || typeof manualText !== "string") {
@@ -180,11 +236,30 @@ export const parseManualParticipantList = (manualText) => {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const participants = lines.map((name, index) => ({
-    id: `manual-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
-    participantName: name,
-    isInvalid: false
-  }));
+  const participants = lines.map((line, index) => {
+    let name = line;
+    let email = "";
+
+    if (line.includes(",")) {
+      const parts = line.split(",");
+      name = parts[0].trim();
+      email = normalizeEmail(parts.slice(1).join(","));
+    } else if (line.includes("\t")) {
+      const parts = line.split("\t");
+      name = parts[0].trim();
+      email = normalizeEmail(parts.slice(1).join("\t"));
+    }
+
+    const isInvalid = !name || (email.length > 0 && !isValidEmail(email));
+
+    return {
+      id: `manual-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
+      participantName: name,
+      email,
+      isInvalid,
+      invalidReason: !name ? "Name is missing" : isInvalid ? "Invalid email" : ""
+    };
+  });
 
   return {
     participants,
@@ -285,7 +360,8 @@ export const executeChunkedBulkGeneration = async ({
 
       const chunkPayload = {
         participants: chunkItems.map((p) => ({
-          participantName: p.participantName.trim()
+          participantName: p.participantName.trim(),
+          email: normalizeEmail(p.email || "")
         })),
         commonDetails: cleanCommon
       };

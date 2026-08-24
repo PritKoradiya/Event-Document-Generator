@@ -13,6 +13,7 @@ const inputClass =
 
 const initialFormData = {
   participantName: "",
+  recipientEmail: "",
   organizationName: "",
   eventName: "",
   category: "",
@@ -141,6 +142,7 @@ function CreateCertificate() {
 
       await saveDraftCertificate({
         participantName: formData.participantName,
+        recipientEmail: formData.recipientEmail || "",
         organizationName: formData.organizationName,
         eventName: formData.eventName,
         certificateCategory: formData.category,
@@ -193,6 +195,7 @@ function CreateCertificate() {
 
       const result = await createCertificate({
         participantName: formData.participantName,
+        recipientEmail: formData.recipientEmail || "",
         organizationName: formData.organizationName,
         eventName: formData.eventName,
         certificateCategory: formData.category,
@@ -306,7 +309,7 @@ function CreateCertificate() {
             </div>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-3">
             <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
               Participant Name *
               <input
@@ -316,6 +319,17 @@ function CreateCertificate() {
                 value={formData.participantName}
                 onChange={handleChange}
                 placeholder="e.g. Pritkumar Koradiya"
+              />
+            </label>
+            <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+              Recipient Email (Optional)
+              <input
+                className={inputClass}
+                type="email"
+                name="recipientEmail"
+                value={formData.recipientEmail || ""}
+                onChange={handleChange}
+                placeholder="e.g. student@ppsu.ac.in"
               />
             </label>
             <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">

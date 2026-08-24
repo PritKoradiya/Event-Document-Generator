@@ -1,5 +1,11 @@
 import mongoose from "mongoose";
 import Certificate from "../models/Certificate.js";
+import { isEmailConfigured } from "../config/email.js";
+import emailService from "../services/emailService.js";
+import emailQueueService from "../services/emailQueueService.js";
+import { normalizeEmail } from "../utils/normalizeEmail.js";
+import { isValidEmail } from "../utils/validateEmail.js";
+import { generateCertificateEmailContent } from "../utils/certificateEmailTemplate.js";
 
 const isDatabaseConnected = () => mongoose.connection.readyState === 1;
 
@@ -41,6 +47,7 @@ const signatureModes = ["blank", "image"];
 const signatureLayouts = ["dr-only", "authorized-only", "both"];
 const singleSignaturePositions = ["left", "center", "right"];
 const maxSignatureImageBytes = 2 * 1024 * 1024;
+const MAX_PDF_ATTACHMENT_BYTES = 5 * 1024 * 1024; // 5 MB maximum attachment limit
 const maxBulkParticipants = 1000;
 const BULK_INSERT_CHUNK_SIZE = 50;
 const legacySignatureFields = [
@@ -212,7 +219,12 @@ const addSignatureDefaults = (certificate) => {
     authorizedSignatureMode: certificateData.authorizedSignatureMode ?? "blank",
     authorizedSignatureImage: certificateData.authorizedSignatureImage ?? null,
     signatureLayout: certificateData.signatureLayout ?? "both",
-    singleSignaturePosition: certificateData.singleSignaturePosition ?? "center"
+    singleSignaturePosition: certificateData.singleSignaturePosition ?? "center",
+    recipientEmail: certificateData.recipientEmail ?? "",
+    emailStatus: certificateData.emailStatus ?? "not-sent",
+    emailSentAt: certificateData.emailSentAt ?? null,
+    emailLastError: certificateData.emailLastError ?? "",
+    emailSendAttempts: certificateData.emailSendAttempts ?? 0
   };
 };
 
@@ -257,17 +269,42 @@ const validateBulkParticipants = (participants) => {
       throw new SignatureConfigurationError("singleSignaturePosition must be provided only in commonDetails.");
     }
 
-    if (typeof participant.participantName !== "string" || participant.participantName.trim().length === 0) {
+    // Support participantName aliases: participantName > fullName > name
+    const rawParticipantName =
+      participant.participantName ??
+      participant.fullName ??
+      participant.name ??
+      "";
+
+    if (typeof rawParticipantName !== "string" || rawParticipantName.trim().length === 0) {
       throw new SignatureConfigurationError("Participant name is required for every participant.");
     }
 
-    if (participant.organizationName !== undefined && participant.organizationName !== null && typeof participant.organizationName !== "string") {
+    if (
+      participant.organizationName !== undefined &&
+      participant.organizationName !== null &&
+      typeof participant.organizationName !== "string"
+    ) {
       throw new SignatureConfigurationError("Participant organization name must be a string.");
     }
 
+    // Support email aliases: email > recipientEmail > emailAddress
+    const rawEmail =
+      participant.email ??
+      participant.recipientEmail ??
+      participant.emailAddress ??
+      "";
+
+    const normalizedEmail = normalizeEmail(rawEmail);
+
+    if (normalizedEmail.length > 0 && !isValidEmail(normalizedEmail)) {
+      throw new SignatureConfigurationError(`Invalid email format for participant: ${rawParticipantName.trim()}`);
+    }
+
     return {
-      participantName: participant.participantName.trim(),
-      organizationName: participant.organizationName?.trim()
+      participantName: rawParticipantName.trim(),
+      organizationName: participant.organizationName?.trim(),
+      recipientEmail: normalizedEmail
     };
   });
 };
@@ -286,14 +323,19 @@ const insertCertificatesInChunks = async (certificates) => {
 
 export const createCertificate = async (req, res) => {
   try {
-    if (!isDatabaseConnected()) {
-      return res.status(503).json({
-        success: false,
-        message: "Database is not connected. Please set MONGO_URI and restart the server."
-      });
-    }
+    const participantName = (
+      req.body.participantName ??
+      req.body.fullName ??
+      req.body.name ??
+      ""
+    ).trim();
 
-    const missingFields = requiredFields.filter((field) => !req.body[field]);
+    const normalizedBody = {
+      ...req.body,
+      participantName
+    };
+
+    const missingFields = requiredFields.filter((field) => !normalizedBody[field]);
 
     if (missingFields.length > 0) {
       return res.status(400).json({
@@ -302,14 +344,37 @@ export const createCertificate = async (req, res) => {
       });
     }
 
-    const signatureConfiguration = getSignatureConfiguration(req.body);
+    const rawEmail = req.body.recipientEmail ?? req.body.email ?? req.body.emailAddress ?? "";
+    const normalizedEmail = normalizeEmail(rawEmail);
+
+    if (normalizedEmail.length > 0 && !isValidEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_EMAIL",
+        message: "Please provide a valid recipient email address."
+      });
+    }
+
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({
+        success: false,
+        message: "Database is not connected. Please set MONGO_URI and restart the server."
+      });
+    }
+
+    const signatureConfiguration = getSignatureConfiguration(normalizedBody);
     const certificateId = await generateCertificateId();
     const certificate = await Certificate.create({
-      ...req.body,
+      ...normalizedBody,
       ...signatureConfiguration,
       generationType: "Single",
       status: "Generated",
-      certificateId
+      certificateId,
+      recipientEmail: normalizedEmail,
+      emailStatus: "not-sent",
+      emailSentAt: null,
+      emailLastError: "",
+      emailSendAttempts: 0
     });
 
     return res.status(201).json({
@@ -324,6 +389,24 @@ export const createCertificate = async (req, res) => {
 
 export const saveDraftCertificate = async (req, res) => {
   try {
+    const participantName = (
+      req.body.participantName ??
+      req.body.fullName ??
+      req.body.name ??
+      ""
+    ).trim();
+
+    const rawEmail = req.body.recipientEmail ?? req.body.email ?? req.body.emailAddress ?? "";
+    const normalizedEmail = normalizeEmail(rawEmail);
+
+    if (normalizedEmail.length > 0 && !isValidEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_EMAIL",
+        message: "Please provide a valid recipient email address."
+      });
+    }
+
     if (!isDatabaseConnected()) {
       return res.status(503).json({
         success: false,
@@ -332,9 +415,9 @@ export const saveDraftCertificate = async (req, res) => {
     }
 
     const signatureConfiguration = getSignatureConfiguration(req.body);
-    const certificateId = req.body.certificateId || await generateCertificateId();
+    const certificateId = req.body.certificateId || (await generateCertificateId());
     const certificate = await Certificate.create({
-      participantName: req.body.participantName || "",
+      participantName,
       organizationName: req.body.organizationName || "",
       eventName: req.body.eventName || "",
       certificateCategory: req.body.certificateCategory || "",
@@ -345,7 +428,12 @@ export const saveDraftCertificate = async (req, res) => {
       ...signatureConfiguration,
       certificateId,
       status: "Draft",
-      generationType: "Single"
+      generationType: "Single",
+      recipientEmail: normalizedEmail,
+      emailStatus: "not-sent",
+      emailSentAt: null,
+      emailLastError: "",
+      emailSendAttempts: 0
     });
 
     return res.status(201).json({
@@ -360,13 +448,6 @@ export const saveDraftCertificate = async (req, res) => {
 
 export const bulkCreateCertificates = async (req, res) => {
   try {
-    if (!isDatabaseConnected()) {
-      return res.status(503).json({
-        success: false,
-        message: "Database is not connected. Please set MONGO_URI and restart the server."
-      });
-    }
-
     const { participants, commonDetails } = req.body;
 
     if (!commonDetails || typeof commonDetails !== "object" || Array.isArray(commonDetails)) {
@@ -394,10 +475,6 @@ export const bulkCreateCertificates = async (req, res) => {
 
     const validatedParticipants = validateBulkParticipants(participants);
 
-    // Organization fallback order:
-    // 1. commonDetails.organizationName
-    // 2. legacy participant.organizationName
-    // 3. validation error if organization name is missing overall
     const commonOrg = typeof commonDetails.organizationName === "string" ? commonDetails.organizationName.trim() : "";
 
     const hasMissingOrg = validatedParticipants.some(
@@ -408,6 +485,13 @@ export const bulkCreateCertificates = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Organization name is required."
+      });
+    }
+
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({
+        success: false,
+        message: "Database is not connected. Please set MONGO_URI and restart the server."
       });
     }
 
@@ -429,7 +513,12 @@ export const bulkCreateCertificates = async (req, res) => {
         ...copySignatureConfiguration(signatureConfiguration),
         certificateId: createCertificateIdFromNumber(nextCertificateNumber + index),
         generationType: "Bulk",
-        status: "Generated"
+        status: "Generated",
+        recipientEmail: participant.recipientEmail || "",
+        emailStatus: "not-sent",
+        emailSentAt: null,
+        emailLastError: "",
+        emailSendAttempts: 0
       };
     });
 
@@ -543,11 +632,63 @@ export const updateCertificate = async (req, res) => {
       });
     }
 
+    let recipientEmail = existingCertificate.recipientEmail || "";
+    let emailStatus = existingCertificate.emailStatus || "not-sent";
+    let emailSentAt = existingCertificate.emailSentAt || null;
+    let emailLastError = existingCertificate.emailLastError || "";
+    let emailSendAttempts = existingCertificate.emailSendAttempts || 0;
+
+    if (
+      hasOwnProperty(req.body, "recipientEmail") ||
+      hasOwnProperty(req.body, "email") ||
+      hasOwnProperty(req.body, "emailAddress")
+    ) {
+      const rawEmail = req.body.recipientEmail ?? req.body.email ?? req.body.emailAddress;
+      const normalizedEmail = normalizeEmail(rawEmail);
+
+      if (normalizedEmail.length > 0 && !isValidEmail(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          code: "INVALID_EMAIL",
+          message: "Please provide a valid recipient email address."
+        });
+      }
+
+      // If email has changed, reset email status
+      if (normalizedEmail !== normalizeEmail(existingCertificate.recipientEmail)) {
+        recipientEmail = normalizedEmail;
+        emailStatus = "not-sent";
+        emailSentAt = null;
+        emailLastError = "";
+        emailSendAttempts = 0;
+      }
+    }
+
+    let participantName = existingCertificate.participantName;
+    if (
+      hasOwnProperty(req.body, "participantName") ||
+      hasOwnProperty(req.body, "fullName") ||
+      hasOwnProperty(req.body, "name")
+    ) {
+      participantName = (
+        req.body.participantName ??
+        req.body.fullName ??
+        req.body.name ??
+        existingCertificate.participantName
+      ).trim();
+    }
+
     const signatureConfiguration = getSignatureConfiguration(req.body, existingCertificate);
     const updateData = {
       ...req.body,
       ...signatureConfiguration,
-      certificateId: existingCertificate.certificateId || req.body.certificateId || await generateCertificateId(),
+      participantName,
+      recipientEmail,
+      emailStatus,
+      emailSentAt,
+      emailLastError,
+      emailSendAttempts,
+      certificateId: existingCertificate.certificateId || req.body.certificateId || (await generateCertificateId()),
       status: req.body.status || existingCertificate.status
     };
 
@@ -595,4 +736,357 @@ export const deleteCertificate = async (req, res) => {
       message: "Failed to delete certificate"
     });
   }
+};
+
+/**
+ * Extracts and validates PDF Base64 string from request body into a clean Buffer.
+ */
+const extractAndValidatePdfBuffer = (pdfBase64) => {
+  if (!pdfBase64 || typeof pdfBase64 !== "string" || pdfBase64.trim().length === 0) {
+    const error = new Error("Certificate PDF is required.");
+    error.code = "PDF_REQUIRED";
+    error.status = 400;
+    throw error;
+  }
+
+  let cleanBase64 = pdfBase64.trim();
+  if (cleanBase64.includes(",")) {
+    const parts = cleanBase64.split(",");
+    cleanBase64 = parts[1] || "";
+  }
+
+  // Remove any whitespace or newlines inside base64 string
+  cleanBase64 = cleanBase64.replace(/\s/g, "");
+
+  let buffer;
+  try {
+    buffer = Buffer.from(cleanBase64, "base64");
+  } catch (err) {
+    const error = new Error("The certificate PDF could not be processed.");
+    error.code = "INVALID_PDF";
+    error.status = 400;
+    throw error;
+  }
+
+  if (!buffer || buffer.length === 0) {
+    const error = new Error("The certificate PDF could not be processed.");
+    error.code = "INVALID_PDF";
+    error.status = 400;
+    throw error;
+  }
+
+  // Basic PDF Header Validation (magic bytes %PDF)
+  const header = buffer.subarray(0, 5).toString("ascii");
+  if (!header.startsWith("%PDF")) {
+    const error = new Error("The certificate PDF could not be processed.");
+    error.code = "INVALID_PDF";
+    error.status = 400;
+    throw error;
+  }
+
+  // Enforce Max Attachment Size (5 MB)
+  if (buffer.length > MAX_PDF_ATTACHMENT_BYTES) {
+    const error = new Error("Certificate PDF is too large to send by email.");
+    error.code = "PDF_TOO_LARGE";
+    error.status = 413;
+    throw error;
+  }
+
+  return buffer;
+};
+
+/**
+ * Single certificate email dispatch endpoint.
+ * POST /api/certificates/:id/send-email
+ */
+export const sendCertificateEmailController = async (req, res) => {
+  try {
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({
+        success: false,
+        message: "Database is not connected. Please set MONGO_URI and restart the server."
+      });
+    }
+
+    const certificate = await Certificate.findById(req.params.id);
+
+    if (!certificate) {
+      return res.status(404).json({
+        success: false,
+        message: "Certificate not found"
+      });
+    }
+
+    // Authoritative recipient email from MongoDB record
+    const recipientEmail = normalizeEmail(certificate.recipientEmail);
+
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        code: "EMAIL_REQUIRED",
+        message: "Recipient email is required for this certificate."
+      });
+    }
+
+    if (!isValidEmail(recipientEmail)) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_EMAIL",
+        message: "The certificate recipient email address is invalid."
+      });
+    }
+
+    // Validate PDF Attachment Payload
+    let pdfBuffer;
+    try {
+      pdfBuffer = extractAndValidatePdfBuffer(req.body?.pdfBase64);
+    } catch (err) {
+      return res.status(err.status || 400).json({
+        success: false,
+        code: err.code || "INVALID_PDF",
+        message: err.message || "Invalid certificate PDF."
+      });
+    }
+
+    const rawFileName = req.body?.fileName || `${certificate.participantName || "Certificate"}.pdf`;
+    const cleanFileName = String(rawFileName)
+      .trim()
+      .replace(/[^a-zA-Z0-9._-]/g, "_");
+    const safeAttachmentName = cleanFileName.toLowerCase().endsWith(".pdf")
+      ? cleanFileName
+      : `${cleanFileName}.pdf`;
+
+    // Check if SMTP is configured
+    if (!isEmailConfigured()) {
+      certificate.emailStatus = "failed";
+      certificate.emailLastError = "Email service is not configured.";
+      await certificate.save();
+
+      return res.status(400).json({
+        success: false,
+        code: "EMAIL_NOT_CONFIGURED",
+        message: "Email service is not configured.",
+        emailStatus: "failed"
+      });
+    }
+
+    // Mark status as sending & increment attempt counter
+    certificate.emailStatus = "sending";
+    certificate.emailSendAttempts = (certificate.emailSendAttempts || 0) + 1;
+    await certificate.save();
+
+    // Generate personalized email content
+    const emailContent = generateCertificateEmailContent(certificate);
+
+    // Send email with PDF attachment
+    const sendResult = await emailService.sendCertificateEmail({
+      to: recipientEmail,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text,
+      attachments: [
+        {
+          filename: safeAttachmentName,
+          content: pdfBuffer,
+          contentType: "application/pdf"
+        }
+      ]
+    });
+
+    if (sendResult.success) {
+      certificate.emailStatus = "sent";
+      certificate.emailSentAt = new Date();
+      certificate.emailLastError = "";
+      await certificate.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Certificate sent successfully.",
+        emailStatus: "sent",
+        recipientEmail: certificate.recipientEmail
+      });
+    } else {
+      certificate.emailStatus = "failed";
+      certificate.emailLastError = sendResult.error || sendResult.message || "Failed to deliver email";
+      await certificate.save();
+
+      return res.status(sendResult.code === "EMAIL_NOT_CONFIGURED" ? 400 : 500).json({
+        success: false,
+        code: sendResult.code || "EMAIL_SEND_FAILED",
+        message: sendResult.message || "Email could not be sent.",
+        emailStatus: "failed"
+      });
+    }
+  } catch (error) {
+    console.error("sendCertificateEmailController error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process certificate email request"
+    });
+  }
+};
+
+/**
+ * Bulk / Send-all certificates email dispatch endpoint foundation.
+ * POST /api/certificates/send-all-email
+ */
+export const sendAllCertificateEmails = async (req, res) => {
+  try {
+    const { certificateIds } = req.body;
+
+    if (!certificateIds || !Array.isArray(certificateIds) || certificateIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "certificateIds must be a non-empty array."
+      });
+    }
+
+    if (certificateIds.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum 500 certificates can be queued for email sending."
+      });
+    }
+
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({
+        success: false,
+        message: "Database is not connected. Please set MONGO_URI and restart the server."
+      });
+    }
+
+    const result = await emailQueueService.queueManyCertificateEmails(certificateIds);
+
+    return res.status(200).json({
+      success: true,
+      message: `Queued ${result.count} certificates for email sending.`,
+      count: result.count
+    });
+  } catch (error) {
+    console.error("sendAllCertificateEmails error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to queue certificates for email sending"
+    });
+  }
+};
+
+/**
+ * Retry failed certificate email dispatch endpoint.
+ * POST /api/certificates/:id/retry-email
+ */
+export const retryCertificateEmail = async (req, res) => {
+  try {
+    // If request contains pdfBase64, run actual send directly
+    if (req.body?.pdfBase64) {
+      return sendCertificateEmailController(req, res);
+    }
+
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({
+        success: false,
+        message: "Database is not connected. Please set MONGO_URI and restart the server."
+      });
+    }
+
+    const certificate = await Certificate.findById(req.params.id);
+
+    if (!certificate) {
+      return res.status(404).json({
+        success: false,
+        message: "Certificate not found"
+      });
+    }
+
+    const recipientEmail = normalizeEmail(certificate.recipientEmail);
+
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        code: "EMAIL_REQUIRED",
+        message: "Recipient email is required."
+      });
+    }
+
+    if (!isValidEmail(recipientEmail)) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_EMAIL",
+        message: "Please provide a valid recipient email address."
+      });
+    }
+
+    await emailQueueService.queueCertificateEmail(certificate._id);
+
+    const updatedCert = await Certificate.findById(certificate._id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Certificate email queued for retry.",
+      data: addSignatureDefaults(updatedCert)
+    });
+  } catch (error) {
+    console.error("retryCertificateEmail error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to retry certificate email"
+    });
+  }
+};
+
+/**
+ * Returns overall email dispatch stats & queue status.
+ * GET /api/certificates/email-status
+ */
+export const getCertificateEmailStatus = async (req, res) => {
+  try {
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({
+        success: false,
+        message: "Database is not connected. Please set MONGO_URI and restart the server."
+      });
+    }
+
+    const [notSent, queued, sending, sent, failed, total] = await Promise.all([
+      Certificate.countDocuments({ emailStatus: "not-sent" }),
+      Certificate.countDocuments({ emailStatus: "queued" }),
+      Certificate.countDocuments({ emailStatus: "sending" }),
+      Certificate.countDocuments({ emailStatus: "sent" }),
+      Certificate.countDocuments({ emailStatus: "failed" }),
+      Certificate.countDocuments()
+    ]);
+
+    const queueStatus = emailQueueService.getQueueStatus();
+
+    return res.status(200).json({
+      success: true,
+      notSent,
+      queued,
+      sending,
+      sent,
+      failed,
+      total,
+      queue: queueStatus
+    });
+  } catch (error) {
+    console.error("getCertificateEmailStatus error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch certificate email status"
+    });
+  }
+};
+
+export default {
+  createCertificate,
+  saveDraftCertificate,
+  bulkCreateCertificates,
+  getCertificates,
+  getCertificateById,
+  updateCertificate,
+  deleteCertificate,
+  sendCertificateEmailController,
+  sendAllCertificateEmails,
+  retryCertificateEmail,
+  getCertificateEmailStatus
 };

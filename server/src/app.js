@@ -9,6 +9,7 @@ import attendanceSheetRoutes from "./routes/attendanceSheetRoutes.js";
 import attendanceStudentRoutes from "./routes/attendanceStudentRoutes.js";
 import certificateRoutes from "./routes/certificateRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import emailRoutes from "./routes/emailRoutes.js";
 import eventReportRoutes from "./routes/eventReportRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import posterRoutes from "./routes/posterRoutes.js";
@@ -37,6 +38,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads"), {
 }));
 
 app.use("/api/health", healthRoutes);
+app.use("/api/email", emailRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/attendance-options", attendanceOptionRoutes);
 app.use("/api/attendance-students", attendanceStudentRoutes);

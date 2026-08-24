@@ -113,6 +113,29 @@ const certificateSchema = new mongoose.Schema(
       type: String,
       enum: ["Draft", "Generated"],
       default: "Generated"
+    },
+    recipientEmail: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    emailStatus: {
+      type: String,
+      enum: ["not-sent", "queued", "sending", "sent", "failed"],
+      default: "not-sent"
+    },
+    emailSentAt: {
+      type: Date,
+      default: null
+    },
+    emailLastError: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    emailSendAttempts: {
+      type: Number,
+      default: 0
     }
   },
   {

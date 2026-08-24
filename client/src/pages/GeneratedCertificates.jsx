@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import CertificatePreview from "../components/CertificatePreview.jsx";
+import CertificateSvg from "../components/certificate/CertificateSvg.jsx";
 import SignatureBoxEditor from "../components/certificate/SignatureBoxEditor.jsx";
 import StatusPill from "../components/ui/StatusPill.jsx";
 import templateData from "../data/templateData.js";
-import { deleteCertificate, getCertificates, updateCertificate } from "../services/certificateApi.js";
+import {
+  deleteCertificate,
+  getCertificates,
+  retryCertificateEmail,
+  sendCertificateEmail,
+  updateCertificate
+} from "../services/certificateApi.js";
 import downloadCertificatePdf from "../utils/downloadCertificatePdf.js";
+import { createCertificatePdfFileName } from "../utils/certificateFileName.js";
+import { prepareCertificatePdfPayload } from "../utils/generateCertificatePdfBlob.js";
+import { isValidEmail, normalizeEmail } from "../utils/emailUtils.js";
 
 const inputClass =
   "h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100";
@@ -26,6 +36,53 @@ const categoryOptions = [
   "Sports",
   "Technical"
 ];
+
+const renderEmailStatusBadge = (status, lastError = "") => {
+  const normalized = (status || "not-sent").toLowerCase();
+
+  switch (normalized) {
+    case "sent":
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          SENT
+        </span>
+      );
+    case "sending":
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-blue-700 animate-pulse">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+          SENDING
+        </span>
+      );
+    case "queued":
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          QUEUED
+        </span>
+      );
+    case "failed":
+      return (
+        <span
+          title={lastError || "Email delivery failed"}
+          className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700 cursor-help"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+          FAILED
+          {lastError && <span className="ml-0.5 text-[9px]">ℹ️</span>}
+        </span>
+      );
+    case "not-sent":
+    default:
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-600">
+          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          NOT SENT
+        </span>
+      );
+  }
+};
 
 const getBoxesFromCertificate = (certificate) => {
   if (Array.isArray(certificate?.signatureBoxes)) {
@@ -72,6 +129,7 @@ const getBoxesFromCertificate = (certificate) => {
 
 const createEditData = (certificate) => ({
   participantName: certificate?.participantName || "",
+  recipientEmail: certificate?.recipientEmail || "",
   organizationName: certificate?.organizationName || "",
   eventName: certificate?.eventName || "",
   certificateCategory: certificate?.certificateCategory || certificate?.category || "",
@@ -89,6 +147,7 @@ function GeneratedCertificates() {
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [editingCertificate, setEditingCertificate] = useState(null);
   const [editData, setEditData] = useState(createEditData(null));
+  const [editError, setEditError] = useState("");
   const [pendingDownload, setPendingDownload] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -99,6 +158,11 @@ function GeneratedCertificates() {
   const [selectedGenerationType, setSelectedGenerationType] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
 
+  // Email dispatch state
+  const [sendMailTarget, setSendMailTarget] = useState(null);
+  const [isSendingMail, setIsSendingMail] = useState(false);
+  const [exportCertificate, setExportCertificate] = useState(null);
+
   // Delete All Modal States
   const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
   const [deleteConfirmationInput, setDeleteConfirmationInput] = useState("");
@@ -106,6 +170,7 @@ function GeneratedCertificates() {
   const [deleteAllProgress, setDeleteAllProgress] = useState({ total: 0, current: 0, failed: 0 });
 
   const selectedSvgRef = useRef(null);
+  const exportSvgRef = useRef(null);
 
   const categories = useMemo(() => {
     const savedCategories = certificates
@@ -124,6 +189,7 @@ function GeneratedCertificates() {
       const matchesSearch =
         !normalizedSearchTerm ||
         certificate.participantName?.toLowerCase().includes(normalizedSearchTerm) ||
+        certificate.recipientEmail?.toLowerCase().includes(normalizedSearchTerm) ||
         certificate.eventName?.toLowerCase().includes(normalizedSearchTerm) ||
         certificate.certificateId?.toLowerCase().includes(normalizedSearchTerm);
       const matchesCategory = selectedCategory === "All" || certificate.certificateCategory === selectedCategory;
@@ -158,7 +224,8 @@ function GeneratedCertificates() {
 
     const downloadSelectedCertificate = async () => {
       await new Promise((resolve) => requestAnimationFrame(resolve));
-      await downloadCertificatePdf(selectedSvgRef.current, createPdfFileName(selectedCertificate));
+      const fileName = createCertificatePdfFileName(selectedCertificate);
+      await downloadCertificatePdf(selectedSvgRef.current, fileName);
       setPendingDownload(false);
     };
 
@@ -177,13 +244,6 @@ function GeneratedCertificates() {
     });
   };
 
-  const createPdfFileName = (certificate) => {
-    const participantName = (certificate.participantName || "Participant").trim().replace(/\s+/g, "_");
-    const certificateId = certificate.certificateId || "CERT-2026-001";
-
-    return `${participantName}_${certificateId}.pdf`;
-  };
-
   const handleView = (certificate) => {
     setSelectedCertificate(certificate);
   };
@@ -191,6 +251,7 @@ function GeneratedCertificates() {
   const handleStartEdit = (certificate) => {
     setEditingCertificate(certificate);
     setEditData(createEditData(certificate));
+    setEditError("");
   };
 
   const handleEditChange = (event) => {
@@ -199,6 +260,7 @@ function GeneratedCertificates() {
       ...currentData,
       [name]: value
     }));
+    if (editError) setEditError("");
   };
 
   const handleAddSignatureBox = () => {
@@ -246,12 +308,22 @@ function GeneratedCertificates() {
       return;
     }
 
+    const normalizedEmail = normalizeEmail(editData.recipientEmail);
+
+    if (normalizedEmail.length > 0 && !isValidEmail(normalizedEmail)) {
+      setEditError("Please enter a valid email address.");
+      return;
+    }
+
     try {
       setIsSavingEdit(true);
 
       const cleanedBoxes = cleanSignatureBoxes(editData.signatureBoxes);
+      const emailChanged = normalizedEmail !== normalizeEmail(editingCertificate.recipientEmail);
+
       const payload = {
         ...editData,
+        recipientEmail: normalizedEmail,
         signatureBoxes: cleanedBoxes,
         singleSignaturePosition: editData.singleSignaturePosition || "center",
         drSignatureName: cleanedBoxes[0]?.signerName || "",
@@ -268,7 +340,15 @@ function GeneratedCertificates() {
 
       setCertificates((currentCertificates) =>
         currentCertificates.map((certificate) =>
-          certificate._id === updatedCertificate._id ? updatedCertificate : certificate
+          certificate._id === updatedCertificate._id
+            ? {
+                ...updatedCertificate,
+                emailStatus: emailChanged ? "not-sent" : updatedCertificate.emailStatus,
+                emailSentAt: emailChanged ? null : updatedCertificate.emailSentAt,
+                emailLastError: emailChanged ? "" : updatedCertificate.emailLastError,
+                emailSendAttempts: emailChanged ? 0 : updatedCertificate.emailSendAttempts
+              }
+            : certificate
         )
       );
       setSelectedCertificate(updatedCertificate);
@@ -322,7 +402,6 @@ function GeneratedCertificates() {
       setErrorMessage("");
       setSuccessMessage("");
 
-      // Target ALL certificate records in the database, ignoring current UI search/filter limits
       const targetCertificates = [...certificates];
       const totalCount = targetCertificates.length;
       setDeleteAllProgress({ total: totalCount, current: 0, failed: 0 });
@@ -352,7 +431,6 @@ function GeneratedCertificates() {
         });
       }
 
-      // Re-fetch database records from backend service to ensure perfect UI state synchronization
       const refreshResult = await getCertificates();
       const freshList = refreshResult.data || [];
 
@@ -361,7 +439,6 @@ function GeneratedCertificates() {
 
       if (failedCount === 0) {
         setSuccessMessage(`All ${totalCount} certificate records have been deleted successfully.`);
-        // Reset search and filter selections after deleting all records
         setSearchTerm("");
         setSelectedCategory("All");
         setSelectedGenerationType("All");
@@ -388,7 +465,127 @@ function GeneratedCertificates() {
       return;
     }
 
-    await downloadCertificatePdf(selectedSvgRef.current, createPdfFileName(selectedCertificate));
+    const fileName = createCertificatePdfFileName(selectedCertificate);
+    await downloadCertificatePdf(selectedSvgRef.current, fileName);
+  };
+
+  const renderCertificatePdfPayload = async (certificate) => {
+    setExportCertificate(certificate);
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 60)));
+
+    if (!exportSvgRef.current) {
+      throw new Error("Certificate canvas renderer is not ready.");
+    }
+
+    return await prepareCertificatePdfPayload(exportSvgRef.current, certificate);
+  };
+
+  const handleExecuteSendEmail = async () => {
+    if (!sendMailTarget) return;
+
+    const cert = sendMailTarget;
+    const certId = cert._id;
+    const recipientEmail = normalizeEmail(cert.recipientEmail);
+
+    if (!recipientEmail || !isValidEmail(recipientEmail)) {
+      setErrorMessage("Please enter a valid recipient email address first.");
+      setSendMailTarget(null);
+      return;
+    }
+
+    try {
+      setIsSendingMail(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      setCertificates((prev) =>
+        prev.map((c) => (c._id === certId ? { ...c, emailStatus: "sending" } : c))
+      );
+
+      // Render offscreen PDF and prepare base64
+      const { pdfBase64, fileName } = await renderCertificatePdfPayload(cert);
+
+      const response = await sendCertificateEmail(certId, { pdfBase64, fileName });
+
+      setSendMailTarget(null);
+
+      if (response?.code === "EMAIL_NOT_CONFIGURED") {
+        setCertificates((prev) =>
+          prev.map((c) => (c._id === certId ? { ...c, emailStatus: "not-sent" } : c))
+        );
+        setErrorMessage("Email service is not configured yet. Please configure SMTP credentials in server/.env.");
+      } else if (response?.success) {
+        setCertificates((prev) =>
+          prev.map((c) =>
+            c._id === certId
+              ? { ...c, emailStatus: "sent", emailSentAt: new Date(), emailLastError: "" }
+              : c
+          )
+        );
+        if (selectedCertificate?._id === certId) {
+          setSelectedCertificate((prev) => ({
+            ...prev,
+            emailStatus: "sent",
+            emailSentAt: new Date()
+          }));
+        }
+        setSuccessMessage(`Certificate email sent successfully to ${recipientEmail}.`);
+      }
+    } catch (error) {
+      console.error("Email send error:", error);
+      setSendMailTarget(null);
+
+      setCertificates((prev) =>
+        prev.map((c) => (c._id === certId ? { ...c, emailStatus: "failed", emailLastError: error.message } : c))
+      );
+
+      if (error?.code === "EMAIL_NOT_CONFIGURED" || error?.message?.includes("not configured")) {
+        setErrorMessage("Email service is not configured yet. Please configure SMTP credentials in server/.env.");
+      } else {
+        setErrorMessage(error.message || `Failed to send email to ${recipientEmail}.`);
+      }
+    } finally {
+      setExportCertificate(null);
+      setIsSendingMail(false);
+    }
+  };
+
+  const handleRetrySendEmail = async (cert) => {
+    try {
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      setCertificates((prev) =>
+        prev.map((c) => (c._id === cert._id ? { ...c, emailStatus: "sending" } : c))
+      );
+
+      const { pdfBase64, fileName } = await renderCertificatePdfPayload(cert);
+      const response = await retryCertificateEmail(cert._id, { pdfBase64, fileName });
+
+      if (response?.code === "EMAIL_NOT_CONFIGURED") {
+        setCertificates((prev) =>
+          prev.map((c) => (c._id === cert._id ? { ...c, emailStatus: "failed" } : c))
+        );
+        setErrorMessage("Email service is not configured yet.");
+      } else if (response?.success) {
+        setCertificates((prev) =>
+          prev.map((c) =>
+            c._id === cert._id
+              ? { ...c, emailStatus: "sent", emailSentAt: new Date(), emailLastError: "" }
+              : c
+          )
+        );
+        setSuccessMessage(`Certificate email for ${cert.participantName} sent successfully.`);
+      }
+    } catch (error) {
+      console.error("Retry error:", error);
+      setCertificates((prev) =>
+        prev.map((c) => (c._id === cert._id ? { ...c, emailStatus: "failed", emailLastError: error.message } : c))
+      );
+      setErrorMessage(error.message || "Failed to retry certificate email.");
+    } finally {
+      setExportCertificate(null);
+    }
   };
 
   if (isLoading) {
@@ -407,12 +604,25 @@ function GeneratedCertificates() {
         ...selectedCertificate,
         certificateCategory: selectedCertificate.certificateCategory || selectedCertificate.category || "",
         signatureBoxes: getBoxesFromCertificate(selectedCertificate),
-        singleSignaturePosition: selectedCertificate.singleSignaturePosition || "center"
+        singleSignaturePosition: selectedCertificate.singleSignaturePosition || "center",
+        recipientEmail: selectedCertificate.recipientEmail || ""
       }
     : null;
 
   return (
     <section className="space-y-8 pb-10">
+      {/* Off-screen Pure SVG Host for PDF Email Attachment Rendering */}
+      <div style={{ position: "fixed", left: "-20000px", top: "0" }} aria-hidden="true">
+        {exportCertificate && (
+          <CertificateSvg
+            ref={exportSvgRef}
+            id="records-email-export-svg"
+            {...exportCertificate}
+            certificateCategory={exportCertificate.certificateCategory || exportCertificate.category}
+          />
+        )}
+      </div>
+
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
         <Link to="/certificate-dashboard" className="hover:text-blue-600 transition">
@@ -431,7 +641,7 @@ function GeneratedCertificates() {
           Certificate Records
         </h1>
         <p className="mt-2 max-w-3xl text-base text-slate-600 font-medium leading-relaxed">
-          Manage saved drafts and generated certificate records. Search, edit fields, filter by category, export individual PDF files, or perform safe bulk deletion.
+          Manage saved drafts and generated certificate records. Search, edit fields and recipient emails, filter by category, send individual emails with PDF attachments, export PDF files, or perform safe bulk deletion.
         </p>
       </div>
 
@@ -478,7 +688,7 @@ function GeneratedCertificates() {
             type="search"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search by participant, event, or ID..."
+            placeholder="Search by participant, email, event, or ID..."
             className={inputClass}
           />
           <select className={inputClass} value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)}>
@@ -637,6 +847,91 @@ function GeneratedCertificates() {
         </div>
       )}
 
+      {/* Individual Send / Resend Confirmation Modal */}
+      {sendMailTarget && (
+        <div className="app-glass-modal-overlay fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+          <div className="app-glass-modal w-full max-w-md overflow-hidden animate-fade-in my-8 p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 text-lg font-black">
+                  ✉️
+                </span>
+                <div>
+                  <h3 className="text-lg font-black text-slate-950 font-sans">
+                    {sendMailTarget.emailStatus === "sent" ? "Resend Certificate Email?" : "Send Certificate Email"}
+                  </h3>
+                  <p className="text-xs font-semibold text-slate-500">Individual Certificate Dispatch</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSendingMail) setSendMailTarget(null);
+                }}
+                disabled={isSendingMail}
+                className="text-slate-400 hover:text-slate-600 transition font-bold text-lg disabled:opacity-30"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-600 font-medium">
+              {sendMailTarget.emailStatus === "sent" && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 font-bold">
+                  ⚠️ This certificate has already been sent to this email address. Send it again?
+                </div>
+              )}
+
+              <p>
+                Send official certificate to:{" "}
+                <strong className="text-blue-700 font-mono text-sm block mt-1">
+                  {sendMailTarget.recipientEmail}
+                </strong>
+              </p>
+              <p className="text-slate-500">
+                Participant: <strong className="text-slate-900">{sendMailTarget.participantName}</strong>
+              </p>
+              <p className="text-slate-500">
+                Certificate ID: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">{sendMailTarget.certificateId}</code>
+              </p>
+              <p className="text-slate-500">
+                The recipient will receive their personalized certificate PDF as an email attachment.
+              </p>
+
+              {isSendingMail && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-700 font-bold flex items-center gap-2">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                  <span>Rendering PDF & dispatching email...</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setSendMailTarget(null)}
+                disabled={isSendingMail}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteSendEmail}
+                disabled={isSendingMail}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black text-white hover:bg-blue-700 transition active:scale-98 shadow-xs disabled:opacity-50"
+              >
+                {isSendingMail
+                  ? "Sending..."
+                  : sendMailTarget.emailStatus === "sent"
+                  ? "Resend Certificate"
+                  : "Send Certificate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Records Table / List */}
       {certificates.length === 0 ? (
         <div className="app-glass-surface p-12 text-center shadow-xs">
@@ -660,17 +955,26 @@ function GeneratedCertificates() {
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-400 font-black uppercase tracking-wider text-[10px]">
                   <th className="py-4 px-4">Participant</th>
+                  <th className="py-4 px-4">Email</th>
                   <th className="py-4 px-4">Event</th>
                   <th className="py-4 px-4">Category</th>
                   <th className="py-4 px-4">Template</th>
                   <th className="py-4 px-4">Certificate ID</th>
                   <th className="py-4 px-4">Status</th>
+                  <th className="py-4 px-4">Email Status</th>
                   <th className="py-4 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredCertificates.map((cert) => {
                   const isSelected = selectedCertificate?._id === cert._id;
+                  const rawEmail = cert.recipientEmail || "";
+                  const hasEmail = rawEmail.trim() !== "";
+                  const isValidRecipient = hasEmail && isValidEmail(rawEmail);
+                  const isSent = cert.emailStatus === "sent";
+                  const isFailed = cert.emailStatus === "failed";
+                  const isSendingThis = cert.emailStatus === "sending";
+
                   return (
                     <tr
                       key={cert._id}
@@ -684,6 +988,24 @@ function GeneratedCertificates() {
                           <span className="block text-[11px] font-normal text-slate-500">{cert.organizationName}</span>
                         )}
                       </td>
+                      <td className="py-3.5 px-4">
+                        {hasEmail ? (
+                          isValidRecipient ? (
+                            <span className="font-mono text-xs text-blue-700 font-semibold">{cert.recipientEmail}</span>
+                          ) : (
+                            <span
+                              title="Invalid email format"
+                              className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200"
+                            >
+                              Invalid email: {cert.recipientEmail}
+                            </span>
+                          )
+                        ) : (
+                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200/60">
+                            No email
+                          </span>
+                        )}
+                      </td>
                       <td className="py-3.5 px-4 font-medium text-slate-700">{cert.eventName || "N/A"}</td>
                       <td className="py-3.5 px-4 font-medium text-slate-600">{cert.certificateCategory || "N/A"}</td>
                       <td className="py-3.5 px-4 font-medium text-slate-600">{cert.templateStyle || "Default"}</td>
@@ -691,12 +1013,34 @@ function GeneratedCertificates() {
                       <td className="py-3.5 px-4">
                         <StatusPill status={cert.status || "Generated"} />
                       </td>
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            {renderEmailStatusBadge(cert.emailStatus, cert.emailLastError)}
+                            {isFailed && (
+                              <button
+                                type="button"
+                                onClick={() => handleRetrySendEmail(cert)}
+                                disabled={isSendingMail}
+                                className="rounded-md border border-rose-300 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700 hover:bg-rose-50 transition disabled:opacity-50"
+                              >
+                                Retry
+                              </button>
+                            )}
+                          </div>
+                          {isFailed && cert.emailLastError && (
+                            <p className="text-[10px] font-semibold text-rose-600 max-w-[170px] leading-tight">
+                              {cert.emailLastError}
+                            </p>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="inline-flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleView(cert)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                            className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
                               isSelected
                                 ? "bg-blue-600 text-white"
                                 : "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
@@ -707,7 +1051,7 @@ function GeneratedCertificates() {
                           <button
                             type="button"
                             onClick={() => handleStartEdit(cert)}
-                            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                            className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
                           >
                             Edit
                           </button>
@@ -717,9 +1061,41 @@ function GeneratedCertificates() {
                               setSelectedCertificate(cert);
                               setPendingDownload(true);
                             }}
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
+                            className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition"
                           >
                             PDF
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSendMailTarget(cert)}
+                            disabled={!isValidRecipient || isSendingMail || isSendingThis}
+                            title={
+                              !hasEmail
+                                ? "Add an email address before sending."
+                                : !isValidRecipient
+                                ? "Invalid email address format"
+                                : isSent
+                                ? `Resend certificate to ${cert.recipientEmail}`
+                                : `Send certificate to ${cert.recipientEmail}`
+                            }
+                            className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition flex items-center gap-1 ${
+                              isValidRecipient
+                                ? "border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                : "border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                            }`}
+                          >
+                            <span>✉️</span>
+                            <span>
+                              {!hasEmail
+                                ? "Add Email"
+                                : isSendingThis
+                                ? "Sending..."
+                                : isSent
+                                ? "Resend"
+                                : isFailed
+                                ? "Retry"
+                                : "Send to Mail"}
+                            </span>
                           </button>
                           <button
                             type="button"
@@ -776,6 +1152,21 @@ function GeneratedCertificates() {
                 <span className="font-bold text-slate-800">{normalizedSelectedCertificate.participantName}</span>
               </div>
               <div>
+                <span className="text-slate-400 font-bold block">Recipient Email:</span>
+                <span className="font-semibold text-blue-700 font-mono">
+                  {normalizedSelectedCertificate.recipientEmail || "Not specified"}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-bold block">Email Status:</span>
+                <div className="mt-0.5">
+                  {renderEmailStatusBadge(
+                    normalizedSelectedCertificate.emailStatus,
+                    normalizedSelectedCertificate.emailLastError
+                  )}
+                </div>
+              </div>
+              <div>
                 <span className="text-slate-400 font-bold block">Organization:</span>
                 <span className="font-semibold text-slate-700">{normalizedSelectedCertificate.organizationName}</span>
               </div>
@@ -819,21 +1210,38 @@ function GeneratedCertificates() {
             </div>
 
             <form className="p-6 space-y-6 max-h-[80vh] overflow-y-auto" onSubmit={(e) => e.preventDefault()}>
+              {editError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800 animate-fade-in">
+                  ⚠️ {editError}
+                </div>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Participant Name
+                  Participant Name *
                   <input className={inputClass} name="participantName" value={editData.participantName} onChange={handleEditChange} />
                 </label>
                 <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Organization Name
+                  Recipient Email (Optional)
+                  <input
+                    className={inputClass}
+                    type="email"
+                    name="recipientEmail"
+                    value={editData.recipientEmail}
+                    onChange={handleEditChange}
+                    placeholder="e.g. student@ppsu.ac.in"
+                  />
+                </label>
+                <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Organization Name *
                   <input className={inputClass} name="organizationName" value={editData.organizationName} onChange={handleEditChange} />
                 </label>
                 <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Event Name
+                  Event Name *
                   <input className={inputClass} name="eventName" value={editData.eventName} onChange={handleEditChange} />
                 </label>
                 <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Certificate Category
+                  Certificate Category *
                   <select className={inputClass} name="certificateCategory" value={editData.certificateCategory} onChange={handleEditChange}>
                     <option value="">Select Category</option>
                     {categoryOptions.map((cat) => (
@@ -844,15 +1252,15 @@ function GeneratedCertificates() {
                   </select>
                 </label>
                 <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Certificate Title
+                  Certificate Title *
                   <input className={inputClass} name="certificateTitle" value={editData.certificateTitle} onChange={handleEditChange} />
                 </label>
                 <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Event Date
+                  Event Date *
                   <input className={inputClass} type="date" name="eventDate" value={editData.eventDate} onChange={handleEditChange} />
                 </label>
                 <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Template Style
+                  Template Style *
                   <select className={inputClass} name="templateStyle" value={editData.templateStyle} onChange={handleEditChange}>
                     <option value="">Select Template</option>
                     {templateData.map((tpl) => (
