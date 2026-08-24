@@ -13,6 +13,8 @@ export const safeFileName = (name) => {
   return cleanedName || "certificate";
 };
 
+const globalSvgImageCache = new Map();
+
 /**
  * Inlines image assets inside an SVG element by converting external hrefs to Base64 Data URLs.
  */
@@ -27,6 +29,13 @@ export const inlineSvgImages = async (svgClone) => {
       }
 
       try {
+        if (globalSvgImageCache.has(href)) {
+          const cachedDataUrl = globalSvgImageCache.get(href);
+          img.setAttribute("href", cachedDataUrl);
+          img.setAttribute("xlink:href", cachedDataUrl);
+          return;
+        }
+
         const response = await fetch(encodeURI(href));
         const blob = await response.blob();
         const reader = new FileReader();
@@ -37,6 +46,7 @@ export const inlineSvgImages = async (svgClone) => {
           reader.readAsDataURL(blob);
         });
 
+        globalSvgImageCache.set(href, dataUrl);
         img.setAttribute("href", dataUrl);
         img.setAttribute("xlink:href", dataUrl);
       } catch (err) {
@@ -155,7 +165,13 @@ export const generateCertificatePdfBlob = async (svgSource) => {
   const y = (pageHeight - renderHeight) / 2;
 
   pdf.addImage(imageData, "JPEG", x, y, renderWidth, renderHeight, undefined, "FAST");
-  return pdf.output("blob");
+  const blob = pdf.output("blob");
+
+  // Immediate canvas memory cleanup
+  canvas.width = 0;
+  canvas.height = 0;
+
+  return blob;
 };
 
 /**
@@ -202,11 +218,15 @@ export const downloadCertificatePdf = async (svgSource, fileName = "certificate.
     const cleanName = safeFileName(fileName);
     const finalFileName = cleanName.toLowerCase().endsWith(".pdf") ? cleanName : `${cleanName}.pdf`;
     pdf.save(finalFileName);
+
+    // Memory cleanup
+    canvas.width = 0;
+    canvas.height = 0;
+
     return true;
   } catch (error) {
     console.error("Certificate PDF export error:", error);
-    alert(error.message || "Unable to download certificate PDF. Please try again.");
-    return false;
+    throw error;
   }
 };
 
@@ -225,11 +245,15 @@ export const downloadCertificatePng = async (svgSource, fileName = "certificate.
     link.href = dataUrl;
     link.download = finalFileName;
     link.click();
+
+    // Memory cleanup
+    canvas.width = 0;
+    canvas.height = 0;
+
     return true;
   } catch (error) {
     console.error("Certificate PNG export error:", error);
-    alert(error.message || "Unable to download certificate PNG. Please try again.");
-    return false;
+    throw error;
   }
 };
 

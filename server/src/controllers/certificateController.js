@@ -8,15 +8,17 @@ const createCertificateIdFromNumber = (number) => {
 };
 
 const getNextCertificateNumber = async () => {
-  const latestCertificate = await Certificate.findOne({ certificateId: /^CERT-2026-/ }).sort({ certificateId: -1 });
+  const certificates = await Certificate.find(
+    { certificateId: /^CERT-2026-[0-9]+$/ },
+    { certificateId: 1, _id: 0 }
+  ).lean();
 
-  if (!latestCertificate?.certificateId) {
-    return 1;
-  }
+  const latestNumber = certificates.reduce((highest, certificate) => {
+    const number = Number(certificate.certificateId.replace("CERT-2026-", ""));
+    return Number.isSafeInteger(number) ? Math.max(highest, number) : highest;
+  }, 0);
 
-  const latestNumber = Number(latestCertificate.certificateId.replace("CERT-2026-", ""));
-
-  return Number.isNaN(latestNumber) ? 1 : latestNumber + 1;
+  return latestNumber + 1;
 };
 
 const generateCertificateId = async () => {
@@ -40,6 +42,7 @@ const signatureLayouts = ["dr-only", "authorized-only", "both"];
 const singleSignaturePositions = ["left", "center", "right"];
 const maxSignatureImageBytes = 2 * 1024 * 1024;
 const maxBulkParticipants = 1000;
+const BULK_INSERT_CHUNK_SIZE = 50;
 const legacySignatureFields = [
   "drSignatureName",
   "drSignatureMode",
@@ -250,8 +253,12 @@ const validateBulkParticipants = (participants) => {
       throw new SignatureConfigurationError("signatureBoxes must be provided only in commonDetails.");
     }
 
+    if (hasOwnProperty(participant, "singleSignaturePosition")) {
+      throw new SignatureConfigurationError("singleSignaturePosition must be provided only in commonDetails.");
+    }
+
     if (typeof participant.participantName !== "string" || participant.participantName.trim().length === 0) {
-      throw new SignatureConfigurationError("Participant name is required.");
+      throw new SignatureConfigurationError("Participant name is required for every participant.");
     }
 
     if (participant.organizationName !== undefined && participant.organizationName !== null && typeof participant.organizationName !== "string") {
@@ -263,6 +270,18 @@ const validateBulkParticipants = (participants) => {
       organizationName: participant.organizationName?.trim()
     };
   });
+};
+
+const insertCertificatesInChunks = async (certificates) => {
+  const savedCertificates = [];
+
+  for (let start = 0; start < certificates.length; start += BULK_INSERT_CHUNK_SIZE) {
+    const chunk = certificates.slice(start, start + BULK_INSERT_CHUNK_SIZE);
+    const savedChunk = await Certificate.insertMany(chunk, { ordered: true });
+    savedCertificates.push(...savedChunk);
+  }
+
+  return savedCertificates;
 };
 
 export const createCertificate = async (req, res) => {
@@ -414,7 +433,7 @@ export const bulkCreateCertificates = async (req, res) => {
       };
     });
 
-    const savedCertificates = await Certificate.insertMany(certificatesToSave);
+    const savedCertificates = await insertCertificatesInChunks(certificatesToSave);
 
     return res.status(201).json({
       success: true,
@@ -423,7 +442,31 @@ export const bulkCreateCertificates = async (req, res) => {
       data: savedCertificates.map(addSignatureDefaults)
     });
   } catch (error) {
-    return sendCertificateError(error, res, "Failed to generate bulk certificates");
+    if (error instanceof SignatureConfigurationError || error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    if (!isDatabaseConnected() || error.name === "MongoServerSelectionError") {
+      return res.status(503).json({
+        success: false,
+        message: "Bulk certificate generation failed because the database could not complete the operation."
+      });
+    }
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Bulk certificate generation failed because a certificate ID already exists. Please try again."
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Bulk certificate generation failed because the database could not complete the operation."
+    });
   }
 };
 

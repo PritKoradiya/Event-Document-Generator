@@ -33,7 +33,7 @@ const errorHandler = (error, req, res, next) => {
     message = "Invalid JSON payload.";
   } else if (error.type === "entity.too.large" || error.status === 413) {
     statusCode = 413;
-    message = "Request payload is too large. The maximum allowed size is 10MB.";
+    message = "Bulk request is too large. Please reduce signature image size or participant batch size.";
   } else if (error instanceof multer.MulterError) {
     statusCode = 400;
     message = error.code === "LIMIT_FILE_SIZE"
