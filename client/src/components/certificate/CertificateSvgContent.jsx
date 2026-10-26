@@ -1,5 +1,6 @@
 import React from "react";
 import { wrapText } from "../../utils/svgTextLayout.js";
+import { getCertificateTypography } from "../../utils/certificateTypography.js";
 import CertificateSignatureBlock from "./CertificateSignatureBlock.jsx";
 
 /**
@@ -26,7 +27,11 @@ function CertificateSvgContent({
   authorizedSignatureImage,
   signatureLayout,
   deanName,
-  theme = {}
+  theme = {},
+  template = null,
+  templateStyle = "",
+  designKey = "",
+  backgroundImage = ""
 }) {
   // Theme Color Scheme
   const titleColor = theme.titleColor || theme.primaryText || "#0f172a";
@@ -38,6 +43,11 @@ function CertificateSvgContent({
 
   const displayCategory = (certificateCategory || category || "").trim();
   const resolvedPosition = singleSignaturePosition || "center";
+
+  // Resolve template typography profile
+  const templateRef = template || { templateStyle, designKey, backgroundImage };
+  const typo = getCertificateTypography(templateRef);
+  const isPpsu = typo.isPpsu;
 
   // Resolve signature boxes array: use signatureBoxes if provided, else fallback to legacy layout
   const boxes = (() => {
@@ -92,23 +102,23 @@ function CertificateSvgContent({
       })
     : "August 15, 2026";
 
-  // SVG Text Wrapping calculations
+  // SVG Text Wrapping calculations with adaptive typography
   const titleLayout = wrapText({
     text: certificateTitle || "Certificate of Participation",
-    maxWidth: 1150,
-    fontSize: 58,
-    fontFamily: "serif",
-    fontWeight: "900",
-    maximumLines: 2
+    maxWidth: typo.title.maxWidth,
+    fontSize: typo.title.preferredSize,
+    fontFamily: typo.title.fontFamily,
+    fontWeight: typo.title.fontWeight,
+    maximumLines: typo.title.maximumLines
   });
 
   const nameLayout = wrapText({
     text: participantName || "Participant Name",
-    maxWidth: 1080,
-    fontSize: 78,
-    fontFamily: "serif",
-    fontWeight: "900",
-    maximumLines: 2
+    maxWidth: typo.name.maxWidth,
+    fontSize: typo.name.preferredSize,
+    fontFamily: typo.name.fontFamily,
+    fontWeight: typo.name.fontWeight,
+    maximumLines: typo.name.maximumLines
   });
 
   const orgEventText = `for successful participation in ${eventName}${
@@ -116,54 +126,54 @@ function CertificateSvgContent({
   }`;
   const orgEventLayout = wrapText({
     text: orgEventText,
-    maxWidth: 1100,
-    fontSize: 25,
-    fontFamily: "sans-serif",
-    fontWeight: "700",
-    maximumLines: 2
+    maxWidth: typo.eventLine.maxWidth,
+    fontSize: typo.eventLine.preferredSize,
+    fontFamily: typo.eventLine.fontFamily,
+    fontWeight: typo.eventLine.fontWeight,
+    maximumLines: typo.eventLine.maximumLines
   });
 
   const descLayout = wrapText({
     text: description || "",
-    maxWidth: 1150,
-    fontSize: 22,
-    fontFamily: "sans-serif",
-    fontWeight: "500",
-    maximumLines: 3
+    maxWidth: typo.description.maxWidth,
+    fontSize: typo.description.preferredSize,
+    fontFamily: typo.description.fontFamily,
+    fontWeight: typo.description.fontWeight,
+    maximumLines: typo.description.maximumLines
   });
 
   // Participant Baseline & Underline Positioning
   const isNameMultiLine = nameLayout.lines.length > 1;
-  const nameFirstLineY = isNameMultiLine ? 425 : 465;
-  const nameUnderlineY = isNameMultiLine ? 535 : 515;
+  const nameFirstLineY = isNameMultiLine ? typo.name.multiLineY : typo.name.singleLineY;
+  const nameUnderlineY = isNameMultiLine ? typo.name.multiLineUnderlineY : typo.name.singleLineUnderlineY;
 
   return (
     <g className="certificate-svg-content">
-      {/* 1. CATEGORY LABEL (y = 145) - Dynamic selected category heading */}
+      {/* 1. CATEGORY LABEL (Dynamic selected category heading) */}
       {displayCategory && (
         <text
           x="800"
-          y="145"
+          y={typo.category.y}
           textAnchor="middle"
           fill={accentColor}
-          fontSize="18"
-          fontWeight="800"
-          letterSpacing="4"
+          fontSize={typo.category.fontSize}
+          fontWeight={typo.category.fontWeight}
+          letterSpacing={typo.category.letterSpacing}
           className="uppercase"
         >
           {displayCategory.toUpperCase()}
         </text>
       )}
 
-      {/* 2. CERTIFICATE TITLE (y = 225) */}
+      {/* 2. CERTIFICATE TITLE */}
       <text
         x="800"
-        y="225"
+        y={typo.title.y}
         textAnchor="middle"
         fill={titleColor}
         fontSize={titleLayout.fontSize}
-        fontFamily="serif"
-        fontWeight="900"
+        fontFamily={typo.title.fontFamily}
+        fontWeight={typo.title.fontWeight}
       >
         {titleLayout.lines.map((line, idx) => (
           <tspan key={idx} x="800" dy={idx === 0 ? 0 : titleLayout.lineHeight}>
@@ -172,32 +182,39 @@ function CertificateSvgContent({
         ))}
       </text>
 
-      {/* 3. DECORATIVE DIVIDER (y = 275) */}
-      <line x1="560" y1="275" x2="1040" y2="275" stroke={borderColor} strokeWidth="2" />
-      <circle cx="800" cy="275" r="5" fill={accentColor} />
+      {/* 3. DECORATIVE DIVIDER */}
+      <line
+        x1={typo.divider.x1}
+        y1={typo.divider.y}
+        x2={typo.divider.x2}
+        y2={typo.divider.y}
+        stroke={borderColor}
+        strokeWidth={typo.divider.strokeWidth}
+      />
+      <circle cx="800" cy={typo.divider.y} r={typo.divider.circleR} fill={accentColor} />
 
-      {/* 4. PRESENTED TO LABEL (y = 345) */}
+      {/* 4. PRESENTED TO LABEL */}
       <text
         x="800"
-        y="345"
+        y={typo.kicker.y}
         textAnchor="middle"
         fill={mutedColor}
-        fontSize="18"
-        fontWeight="800"
-        letterSpacing="3"
+        fontSize={typo.kicker.fontSize}
+        fontWeight={typo.kicker.fontWeight}
+        letterSpacing={typo.kicker.letterSpacing}
       >
-        THIS CERTIFICATE IS PROUDLY PRESENTED TO
+        {typo.kicker.text}
       </text>
 
-      {/* 5. PARTICIPANT NAME (y = nameFirstLineY) */}
+      {/* 5. PARTICIPANT NAME */}
       <text
         x="800"
         y={nameFirstLineY}
         textAnchor="middle"
         fill={nameColor}
         fontSize={nameLayout.fontSize}
-        fontFamily="serif"
-        fontWeight="900"
+        fontFamily={typo.name.fontFamily}
+        fontWeight={typo.name.fontWeight}
       >
         {nameLayout.lines.map((line, idx) => (
           <tspan key={idx} x="800" dy={idx === 0 ? 0 : nameLayout.lineHeight}>
@@ -206,26 +223,26 @@ function CertificateSvgContent({
         ))}
       </text>
 
-      {/* 6. PARTICIPANT UNDERLINE (y = nameUnderlineY) */}
+      {/* 6. PARTICIPANT UNDERLINE */}
       <line
-        x1="390"
+        x1={typo.name.underlineX1}
         y1={nameUnderlineY}
-        x2="1210"
+        x2={typo.name.underlineX2}
         y2={nameUnderlineY}
         stroke={accentColor}
-        strokeWidth="3"
+        strokeWidth={typo.name.underlineStrokeWidth}
         strokeOpacity="0.7"
       />
 
-      {/* 7. ORGANIZATION & EVENT SENTENCE (y = 570) */}
+      {/* 7. ORGANIZATION & EVENT SENTENCE */}
       <text
         x="800"
-        y="570"
+        y={typo.eventLine.y}
         textAnchor="middle"
         fill={bodyColor}
         fontSize={orgEventLayout.fontSize}
-        fontFamily="sans-serif"
-        fontWeight="700"
+        fontFamily={typo.eventLine.fontFamily}
+        fontWeight={typo.eventLine.fontWeight}
       >
         {orgEventLayout.lines.map((line, idx) => (
           <tspan key={idx} x="800" dy={idx === 0 ? 0 : orgEventLayout.lineHeight}>
@@ -234,29 +251,29 @@ function CertificateSvgContent({
         ))}
       </text>
 
-      {/* 8. EVENT DATE (y = 635) */}
+      {/* 8. EVENT DATE */}
       <text
         x="800"
-        y="635"
+        y={typo.date.y}
         textAnchor="middle"
         fill={bodyColor}
-        fontSize="20"
-        fontFamily="sans-serif"
-        fontWeight="700"
+        fontSize={typo.date.fontSize}
+        fontFamily={typo.date.fontFamily}
+        fontWeight={typo.date.fontWeight}
       >
         Given on <tspan fontWeight="800" fill={titleColor}>{formattedDate}</tspan>
       </text>
 
-      {/* 9. DESCRIPTION (y = 715) */}
+      {/* 9. DESCRIPTION */}
       {description && (
         <text
           x="800"
-          y="715"
+          y={typo.description.y}
           textAnchor="middle"
           fill={mutedColor}
           fontSize={descLayout.fontSize}
-          fontFamily="sans-serif"
-          fontWeight="500"
+          fontFamily={typo.description.fontFamily}
+          fontWeight={typo.description.fontWeight}
         >
           {descLayout.lines.map((line, idx) => (
             <tspan key={idx} x="800" dy={idx === 0 ? 0 : descLayout.lineHeight}>
@@ -266,9 +283,16 @@ function CertificateSvgContent({
         </text>
       )}
 
-      {/* 10. FOOTER DIVIDER (y = 840) - Only show when at least 1 signature block exists */}
+      {/* 10. FOOTER DIVIDER - Only show when at least 1 signature block exists */}
       {boxes.length > 0 && (
-        <line x1="170" y1="840" x2="1430" y2="840" stroke={borderColor} strokeWidth="1.5" />
+        <line
+          x1={typo.footerDivider.x1}
+          y1={typo.footerDivider.y}
+          x2={typo.footerDivider.x2}
+          y2={typo.footerDivider.y}
+          stroke={borderColor}
+          strokeWidth={typo.footerDivider.strokeWidth}
+        />
       )}
 
       {/* 11. DYNAMIC FOOTER SIGNATURE BLOCKS (NO CERTIFICATE ID, NO SEAL) */}
@@ -279,8 +303,8 @@ function CertificateSvgContent({
           else if (resolvedPosition === "right") centerX = 1270;
           else centerX = 800; // "center"
         } else if (boxes.length === 2) {
-          if (index === 0) centerX = 330;
-          else centerX = 1270;
+          if (index === 0) centerX = 350;
+          else centerX = 1250;
         } else if (boxes.length === 3) {
           if (index === 0) centerX = 300;
           else if (index === 1) centerX = 800;
@@ -291,6 +315,7 @@ function CertificateSvgContent({
           <CertificateSignatureBlock
             key={index}
             isSvg={true}
+            isPpsu={isPpsu}
             personName={box.signerName}
             subtitle={box.signerDesignation}
             signatureMode={box.signatureMode}
@@ -299,7 +324,10 @@ function CertificateSvgContent({
             textColor={titleColor}
             subtitleColor={mutedColor}
             centerX={centerX}
-            yOffset={855}
+            yOffset={typo.signature.yOffset}
+            lineWidth={typo.signature.lineWidth}
+            nameFontSizeFn={typo.signature.getNameFontSize}
+            subtitleFontSizeFn={typo.signature.getSubtitleFontSize}
           />
         );
       })}

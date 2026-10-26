@@ -14,15 +14,28 @@ function CertificateSignatureBlock({
   subtitleColor = "#64748b",
   className = "",
   isSvg = false,
+  isPpsu = false,
   centerX = 330,
-  yOffset = 855
+  yOffset = 855,
+  lineWidth = 220,
+  nameFontSizeFn = null,
+  subtitleFontSizeFn = null
 }) {
   const cleanName = typeof personName === "string" ? personName.trim() : "";
   const cleanSubtitle = typeof subtitle === "string" ? subtitle.trim() : "";
 
   // Calculate dynamic font sizes for SVG mode based on text length to prevent overflow
   const getNameFontSize = (text) => {
+    if (typeof nameFontSizeFn === "function") {
+      return nameFontSizeFn(text);
+    }
     const len = text.length;
+    if (isPpsu) {
+      if (len > 32) return 20;
+      if (len > 24) return 23;
+      if (len > 18) return 25;
+      return 27;
+    }
     if (len > 32) return 13;
     if (len > 24) return 15;
     if (len > 18) return 16;
@@ -30,12 +43,25 @@ function CertificateSignatureBlock({
   };
 
   const getSubtitleFontSize = (text) => {
+    if (typeof subtitleFontSizeFn === "function") {
+      return subtitleFontSizeFn(text);
+    }
     const len = text.length;
+    if (isPpsu) {
+      if (len > 36) return 16;
+      if (len > 26) return 18;
+      if (len > 18) return 20;
+      return 21;
+    }
     if (len > 36) return 11;
     if (len > 26) return 13;
     if (len > 18) return 14;
     return 15;
   };
+
+  const halfWidth = Math.round((lineWidth || 220) / 2);
+  const nameY = isPpsu ? yOffset + 102 : yOffset + 98;
+  const subtitleY = isPpsu ? yOffset + 130 : yOffset + 122;
 
   if (isSvg) {
     const nameFontSize = getNameFontSize(cleanName);
@@ -57,9 +83,9 @@ function CertificateSignatureBlock({
 
         {/* Signature Line */}
         <line
-          x1={centerX - 110}
+          x1={centerX - halfWidth}
           y1={yOffset + 70}
-          x2={centerX + 110}
+          x2={centerX + halfWidth}
           y2={yOffset + 70}
           stroke={lineColor}
           strokeWidth="2"
@@ -70,7 +96,7 @@ function CertificateSignatureBlock({
         {cleanName && (
           <text
             x={centerX}
-            y={yOffset + 98}
+            y={nameY}
             textAnchor="middle"
             fill={textColor}
             fontSize={nameFontSize}
@@ -85,7 +111,7 @@ function CertificateSignatureBlock({
         {cleanSubtitle && (
           <text
             x={centerX}
-            y={yOffset + 122}
+            y={subtitleY}
             textAnchor="middle"
             fill={subtitleColor}
             fontSize={subtitleFontSize}
@@ -101,7 +127,7 @@ function CertificateSignatureBlock({
 
   // HTML Layout Fallback
   return (
-    <div className={`flex flex-col items-center text-center max-w-[240px] ${className}`}>
+    <div className={`flex flex-col items-center text-center max-w-[280px] ${className}`}>
       {/* Signature Image or Blank space */}
       <div className="h-16 w-48 flex items-center justify-center mb-1">
         {signatureMode === "image" && signatureImage ? (
@@ -114,12 +140,17 @@ function CertificateSignatureBlock({
       </div>
 
       {/* Signature Line */}
-      <div className="h-0.5 w-48 mb-1.5" style={{ background: lineColor, opacity: 0.6 }} />
+      <div
+        className="h-0.5 mb-1.5"
+        style={{ width: `${lineWidth || 220}px`, background: lineColor, opacity: 0.6 }}
+      />
 
       {/* Person Name */}
       {cleanName && (
         <span
-          className="text-[16px] font-black uppercase tracking-wider leading-tight text-center break-words max-w-full"
+          className={`${
+            isPpsu ? "text-[20px]" : "text-[16px]"
+          } font-black uppercase tracking-wider leading-tight text-center break-words max-w-full`}
           style={{ color: textColor }}
         >
           {cleanName}
@@ -129,7 +160,9 @@ function CertificateSignatureBlock({
       {/* Subtitle / Designation */}
       {cleanSubtitle && (
         <span
-          className="text-[14px] font-bold leading-tight text-center break-words max-w-full mt-0.5"
+          className={`${
+            isPpsu ? "text-[16px]" : "text-[14px]"
+          } font-bold leading-tight text-center break-words max-w-full mt-0.5`}
           style={{ color: subtitleColor }}
         >
           {cleanSubtitle}

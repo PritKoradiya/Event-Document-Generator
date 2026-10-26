@@ -59,6 +59,8 @@ const CertificateSvg = forwardRef(function CertificateSvg(
     <svg
       ref={ref}
       id={id}
+      data-participant-name={participantName}
+      data-certificate-id={certificateId}
       viewBox={`0 0 ${CERTIFICATE_WIDTH} ${CERTIFICATE_HEIGHT}`}
       width={CERTIFICATE_WIDTH}
       height={CERTIFICATE_HEIGHT}
@@ -97,6 +99,10 @@ const CertificateSvg = forwardRef(function CertificateSvg(
         deanName={deanName}
         signatureLayout={signatureLayout}
         theme={mergedTemplate.theme || {}}
+        template={mergedTemplate}
+        templateStyle={templateStyle}
+        designKey={designKey}
+        backgroundImage={mergedTemplate.backgroundImage}
       />
     </svg>
   );

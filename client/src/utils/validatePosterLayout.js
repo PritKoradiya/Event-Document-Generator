@@ -8,7 +8,7 @@ export function validatePosterLayout(posterProps, titleLines = [], descriptionLi
 
   const warnings = [];
 
-  if (!posterProps.posterTitle) {
+  if (!posterProps.posterTitle && !posterProps.mainTitle) {
     warnings.push("Poster title is missing or empty.");
   }
 

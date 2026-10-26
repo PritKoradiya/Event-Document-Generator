@@ -471,7 +471,26 @@ function GeneratedCertificates() {
 
   const renderCertificatePdfPayload = async (certificate) => {
     setExportCertificate(certificate);
-    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 60)));
+
+    const targetParticipant = String(certificate.participantName || "").trim();
+    const targetCertId = String(certificate.certificateId || certificate._id || "").trim();
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < 3000) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (exportSvgRef.current) {
+        const renderedName = String(exportSvgRef.current.getAttribute("data-participant-name") || "").trim();
+        const renderedId = String(exportSvgRef.current.getAttribute("data-certificate-id") || "").trim();
+        if (
+          (targetParticipant && renderedName === targetParticipant) ||
+          (targetCertId && renderedId === targetCertId)
+        ) {
+          await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 30)));
+          break;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
 
     if (!exportSvgRef.current) {
       throw new Error("Certificate canvas renderer is not ready.");

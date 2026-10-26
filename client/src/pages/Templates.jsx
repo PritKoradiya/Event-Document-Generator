@@ -181,6 +181,22 @@ function CertificateMiniPreview({ template }) {
 }
 
 function PosterMiniPreview({ poster }) {
+  if (poster.posterFormat === "ppsu-expert-talk" || poster.background) {
+    return (
+      <div className="relative aspect-[1447/2048] overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-xs group-hover:shadow-md transition-shadow">
+        <img
+          src={poster.background}
+          alt={poster.name}
+          className="h-full w-full object-cover"
+          draggable={false}
+        />
+        <div className="absolute right-3 top-3 rounded-full bg-slate-950/80 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white backdrop-blur-md">
+          {poster.category}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative aspect-[4/5] overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br ${poster.backgroundClass || "from-slate-900 via-blue-950 to-slate-950"} p-4 text-white shadow-xs flex flex-col justify-between`}>
       <div className="flex items-center justify-between border-b border-white/15 pb-2">

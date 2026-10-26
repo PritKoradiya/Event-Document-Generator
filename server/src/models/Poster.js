@@ -1,15 +1,52 @@
 import mongoose from "mongoose";
 
-const isRequiredForGeneratedPoster = function () {
-  return this.status !== "Draft";
+const getDocumentStatus = function () {
+  if (this.status) return this.status;
+  if (typeof this.getUpdate === "function") {
+    const update = this.getUpdate();
+    return update?.status || update?.$set?.status || "Generated";
+  }
+  return "Generated";
+};
+
+const getDocumentFormat = function () {
+  if (this.posterFormat) return this.posterFormat;
+  if (typeof this.getUpdate === "function") {
+    const update = this.getUpdate();
+    return update?.posterFormat || update?.$set?.posterFormat || "standard";
+  }
+  return "standard";
+};
+
+const isStandardGeneratedPoster = function () {
+  const status = getDocumentStatus.call(this);
+  const format = getDocumentFormat.call(this);
+  return status !== "Draft" && format === "standard";
+};
+
+const isPpsuGeneratedPoster = function () {
+  const status = getDocumentStatus.call(this);
+  const format = getDocumentFormat.call(this);
+  return status !== "Draft" && format === "ppsu-expert-talk";
+};
+
+const isAnyGeneratedPoster = function () {
+  const status = getDocumentStatus.call(this);
+  return status !== "Draft";
 };
 
 const posterSchema = new mongoose.Schema(
   {
+    posterFormat: {
+      type: String,
+      enum: ["standard", "ppsu-expert-talk"],
+      default: "standard"
+    },
     posterTitle: {
       type: String,
-      required: isRequiredForGeneratedPoster,
-      trim: true
+      required: isStandardGeneratedPoster,
+      trim: true,
+      default: ""
     },
     tagline: {
       type: String,
@@ -17,18 +54,21 @@ const posterSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      required: isRequiredForGeneratedPoster
+      required: isStandardGeneratedPoster,
+      default: ""
     },
     eventDate: {
       type: String,
-      required: isRequiredForGeneratedPoster
+      required: isAnyGeneratedPoster
     },
     eventTime: {
       type: String,
+      required: isPpsuGeneratedPoster,
       default: ""
     },
     venue: {
       type: String,
+      required: isPpsuGeneratedPoster,
       default: ""
     },
     speakerName: {
@@ -36,6 +76,28 @@ const posterSchema = new mongoose.Schema(
       default: ""
     },
     speakerDesignation: {
+      type: String,
+      default: ""
+    },
+    eventType: {
+      type: String,
+      required: isPpsuGeneratedPoster,
+      trim: true,
+      default: ""
+    },
+    mainTitle: {
+      type: String,
+      required: isPpsuGeneratedPoster,
+      trim: true,
+      default: ""
+    },
+    speaker: {
+      type: String,
+      required: isPpsuGeneratedPoster,
+      trim: true,
+      default: ""
+    },
+    speakerPhoto: {
       type: String,
       default: ""
     },
@@ -57,7 +119,7 @@ const posterSchema = new mongoose.Schema(
     },
     templateStyle: {
       type: String,
-      required: isRequiredForGeneratedPoster
+      required: isAnyGeneratedPoster
     },
     designKey: {
       type: String,

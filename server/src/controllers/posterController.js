@@ -11,8 +11,9 @@ const posterUploadsDirectory = path.join(__dirname, "../../uploads/posters");
 
 const isDatabaseConnected = () => mongoose.connection.readyState === 1;
 
-const requiredFields = ["posterTitle", "category", "eventDate", "templateStyle"];
+const standardRequiredFields = ["posterTitle", "category", "eventDate", "templateStyle"];
 const validStatuses = ["Draft", "Generated"];
+const validPosterFormats = ["standard", "ppsu-expert-talk"];
 
 const isMissingRequiredValue = (value) => {
   return value === undefined || value === null || (typeof value === "string" && !value.trim());
@@ -55,7 +56,8 @@ const getUploadedAssetPath = (files, fieldName) => {
 const getUploadedAssetPaths = (files) => {
   return [
     getUploadedAssetPath(files, "posterImage"),
-    getUploadedAssetPath(files, "organizationLogo")
+    getUploadedAssetPath(files, "organizationLogo"),
+    getUploadedAssetPath(files, "speakerPhoto")
   ].filter(Boolean);
 };
 
@@ -111,21 +113,91 @@ export const createPoster = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
-    const missingFields = requiredFields.filter((field) => isMissingRequiredValue(req.body[field]));
+    const posterFormat = req.body.posterFormat || "standard";
 
-    if (missingFields.length > 0) {
+    if (!validPosterFormats.includes(posterFormat)) {
       await removeUploadedRequestAssets(req.files);
       return res.status(400).json({
         success: false,
-        message: "Required poster information is missing."
+        message: "Invalid poster format."
       });
     }
 
     const requestedStatus = validStatuses.includes(req.body.status) ? req.body.status : "Generated";
+
+    if (requestedStatus === "Generated") {
+      if (posterFormat === "ppsu-expert-talk") {
+        if (isMissingRequiredValue(req.body.eventType)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Event type is required for this poster format."
+          });
+        }
+
+        if (isMissingRequiredValue(req.body.mainTitle)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Main title is required for this poster format."
+          });
+        }
+
+        if (isMissingRequiredValue(req.body.speaker)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Speaker is required for this poster format."
+          });
+        }
+
+        if (isMissingRequiredValue(req.body.eventDate)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Event date is required."
+          });
+        }
+
+        if (isMissingRequiredValue(req.body.eventTime)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Event time is required."
+          });
+        }
+
+        if (isMissingRequiredValue(req.body.venue)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Venue is required."
+          });
+        }
+      } else {
+        const missingFields = standardRequiredFields.filter((field) => isMissingRequiredValue(req.body[field]));
+
+        if (missingFields.length > 0) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Required poster information is missing."
+          });
+        }
+      }
+    }
+
+    const templateStyle = req.body.templateStyle || (posterFormat === "ppsu-expert-talk" ? "PPSU Expert Talk Poster" : req.body.templateStyle);
+    const designKey = req.body.designKey || (posterFormat === "ppsu-expert-talk" ? "ppsu-expert-talk" : req.body.designKey || "");
+
     const poster = await createPosterRecord({
       ...req.body,
-      posterImage: getUploadedAssetPath(req.files, "posterImage"),
-      organizationLogo: getUploadedAssetPath(req.files, "organizationLogo"),
+      posterFormat,
+      templateStyle,
+      designKey,
+      posterImage: getUploadedAssetPath(req.files, "posterImage") || req.body.posterImage || "",
+      organizationLogo: getUploadedAssetPath(req.files, "organizationLogo") || req.body.organizationLogo || "",
+      speakerPhoto: getUploadedAssetPath(req.files, "speakerPhoto") || req.body.speakerPhoto || "",
       status: requestedStatus
     });
 
@@ -136,6 +208,12 @@ export const createPoster = async (req, res) => {
     });
   } catch (error) {
     await removeUploadedRequestAssets(req.files);
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
     return res.status(500).json({
       success: false,
       message: "Failed to generate poster"
@@ -150,10 +228,27 @@ export const saveDraftPoster = async (req, res) => {
       return databaseUnavailableResponse(res);
     }
 
+    const posterFormat = req.body.posterFormat || "standard";
+
+    if (!validPosterFormats.includes(posterFormat)) {
+      await removeUploadedRequestAssets(req.files);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid poster format."
+      });
+    }
+
+    const templateStyle = req.body.templateStyle || (posterFormat === "ppsu-expert-talk" ? "PPSU Expert Talk Poster" : req.body.templateStyle || "");
+    const designKey = req.body.designKey || (posterFormat === "ppsu-expert-talk" ? "ppsu-expert-talk" : req.body.designKey || "");
+
     const poster = await createPosterRecord({
       ...req.body,
-      posterImage: getUploadedAssetPath(req.files, "posterImage"),
-      organizationLogo: getUploadedAssetPath(req.files, "organizationLogo"),
+      posterFormat,
+      templateStyle,
+      designKey,
+      posterImage: getUploadedAssetPath(req.files, "posterImage") || req.body.posterImage || "",
+      organizationLogo: getUploadedAssetPath(req.files, "organizationLogo") || req.body.organizationLogo || "",
+      speakerPhoto: getUploadedAssetPath(req.files, "speakerPhoto") || req.body.speakerPhoto || "",
       status: "Draft"
     });
 
@@ -164,6 +259,12 @@ export const saveDraftPoster = async (req, res) => {
     });
   } catch (error) {
     await removeUploadedRequestAssets(req.files);
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
     return res.status(500).json({
       success: false,
       message: "Failed to save poster draft"
@@ -240,33 +341,101 @@ export const updatePoster = async (req, res) => {
       return res.status(404).json({ success: false, message: "Poster not found." });
     }
 
-    const { _id, posterId, posterImage, organizationLogo, ...editableFields } = req.body;
+    if (req.body.posterFormat && !validPosterFormats.includes(req.body.posterFormat)) {
+      await removeUploadedRequestAssets(req.files);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid poster format."
+      });
+    }
+
+    const { _id, posterId, posterImage, organizationLogo, speakerPhoto, ...editableFields } = req.body;
     const newPosterImage = getUploadedAssetPath(req.files, "posterImage");
     const newOrganizationLogo = getUploadedAssetPath(req.files, "organizationLogo");
+    const newSpeakerPhoto = getUploadedAssetPath(req.files, "speakerPhoto");
+
     const updateData = {
       ...editableFields,
       posterId: existingPoster.posterId,
-      posterImage: newPosterImage || existingPoster.posterImage,
-      organizationLogo: newOrganizationLogo || existingPoster.organizationLogo
+      posterImage: newPosterImage || (req.body.posterImage !== undefined ? req.body.posterImage : existingPoster.posterImage),
+      organizationLogo: newOrganizationLogo || (req.body.organizationLogo !== undefined ? req.body.organizationLogo : existingPoster.organizationLogo),
+      speakerPhoto: newSpeakerPhoto || (req.body.speakerPhoto !== undefined ? req.body.speakerPhoto : existingPoster.speakerPhoto)
     };
 
+    const targetFormat = updateData.posterFormat || existingPoster.posterFormat || "standard";
     const resultingStatus = validStatuses.includes(updateData.status)
       ? updateData.status
       : existingPoster.status;
     updateData.status = resultingStatus;
 
     if (resultingStatus === "Generated") {
-      const missingFields = requiredFields.filter((field) => {
-        const value = updateData[field] === undefined ? existingPoster[field] : updateData[field];
-        return isMissingRequiredValue(value);
-      });
+      if (targetFormat === "ppsu-expert-talk") {
+        const eventType = updateData.eventType !== undefined ? updateData.eventType : existingPoster.eventType;
+        if (isMissingRequiredValue(eventType)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Event type is required for this poster format."
+          });
+        }
 
-      if (missingFields.length > 0) {
-        await removeUploadedRequestAssets(req.files);
-        return res.status(400).json({
-          success: false,
-          message: "Required poster information is missing."
+        const mainTitle = updateData.mainTitle !== undefined ? updateData.mainTitle : existingPoster.mainTitle;
+        if (isMissingRequiredValue(mainTitle)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Main title is required for this poster format."
+          });
+        }
+
+        const speaker = updateData.speaker !== undefined ? updateData.speaker : existingPoster.speaker;
+        if (isMissingRequiredValue(speaker)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Speaker is required for this poster format."
+          });
+        }
+
+        const eventDate = updateData.eventDate !== undefined ? updateData.eventDate : existingPoster.eventDate;
+        if (isMissingRequiredValue(eventDate)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Event date is required."
+          });
+        }
+
+        const eventTime = updateData.eventTime !== undefined ? updateData.eventTime : existingPoster.eventTime;
+        if (isMissingRequiredValue(eventTime)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Event time is required."
+          });
+        }
+
+        const venue = updateData.venue !== undefined ? updateData.venue : existingPoster.venue;
+        if (isMissingRequiredValue(venue)) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Venue is required."
+          });
+        }
+      } else {
+        const missingFields = standardRequiredFields.filter((field) => {
+          const value = updateData[field] === undefined ? existingPoster[field] : updateData[field];
+          return isMissingRequiredValue(value);
         });
+
+        if (missingFields.length > 0) {
+          await removeUploadedRequestAssets(req.files);
+          return res.status(400).json({
+            success: false,
+            message: "Required poster information is missing."
+          });
+        }
       }
     }
 
@@ -277,12 +446,16 @@ export const updatePoster = async (req, res) => {
 
     const replacedAssets = [];
 
-    if (newPosterImage && existingPoster.posterImage) {
+    if (newPosterImage && existingPoster.posterImage && newPosterImage !== existingPoster.posterImage) {
       replacedAssets.push(existingPoster.posterImage);
     }
 
-    if (newOrganizationLogo && existingPoster.organizationLogo) {
+    if (newOrganizationLogo && existingPoster.organizationLogo && newOrganizationLogo !== existingPoster.organizationLogo) {
       replacedAssets.push(existingPoster.organizationLogo);
+    }
+
+    if (newSpeakerPhoto && existingPoster.speakerPhoto && newSpeakerPhoto !== existingPoster.speakerPhoto) {
+      replacedAssets.push(existingPoster.speakerPhoto);
     }
 
     await Promise.all(replacedAssets.map(deleteUploadedAsset));
@@ -294,6 +467,12 @@ export const updatePoster = async (req, res) => {
     });
   } catch (error) {
     await removeUploadedRequestAssets(req.files);
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
     return res.status(500).json({
       success: false,
       message: "Failed to update poster"
@@ -320,7 +499,8 @@ export const deletePoster = async (req, res) => {
     await Poster.findByIdAndDelete(req.params.id);
     await Promise.all([
       deleteUploadedAsset(existingPoster.posterImage),
-      deleteUploadedAsset(existingPoster.organizationLogo)
+      deleteUploadedAsset(existingPoster.organizationLogo),
+      deleteUploadedAsset(existingPoster.speakerPhoto)
     ]);
 
     return res.status(200).json({

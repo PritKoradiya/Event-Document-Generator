@@ -146,32 +146,67 @@ class EmailQueueService {
     if (certificates.length === 0) {
       return {
         success: true,
+        queued: 0,
+        skipped: certificateIds.length,
+        failed: 0,
         count: 0,
-        queuedIds: []
+        totalMatched: 0,
+        data: []
       };
     }
 
-    const matchedIds = certificates.map((c) => c._id);
-
-    // Update status in database in bulk
-    await Certificate.updateMany(
-      { _id: { $in: matchedIds } },
-      {
-        $set: {
-          emailStatus: "queued",
-          emailLastError: ""
-        }
-      }
-    );
-
     let enqueuedCount = 0;
+    let skippedCount = 0;
+    const queuedIds = [];
+    const resultData = [];
+
     for (const cert of certificates) {
+      const email = cert.recipientEmail ? cert.recipientEmail.trim() : "";
+      const hasValidEmail = email !== "" && isValidEmail(email);
+
+      if (!hasValidEmail) {
+        skippedCount += 1;
+        resultData.push({
+          certificateId: cert.certificateId || cert._id,
+          recipientEmail: email,
+          emailStatus: cert.emailStatus || "not-sent",
+          skipped: true,
+          reason: !email ? "Missing recipient email" : "Invalid recipient email"
+        });
+        continue;
+      }
+
       const key = cert._id.toString();
+      queuedIds.push(cert._id);
       if (!this.queue.includes(key) && !this.processing.has(key)) {
         this.queue.push(key);
         this.stats.totalQueued += 1;
         enqueuedCount += 1;
       }
+
+      resultData.push({
+        certificateId: cert.certificateId || cert._id,
+        recipientEmail: email,
+        emailStatus: "queued",
+        skipped: false
+      });
+    }
+
+    // Also account for requested IDs not found in the database
+    const notFoundCount = Math.max(0, certificateIds.length - certificates.length);
+    skippedCount += notFoundCount;
+
+    if (queuedIds.length > 0) {
+      // Update status in database in bulk for valid ones
+      await Certificate.updateMany(
+        { _id: { $in: queuedIds } },
+        {
+          $set: {
+            emailStatus: "queued",
+            emailLastError: ""
+          }
+        }
+      );
     }
 
     // Trigger queue runner asynchronously
@@ -179,8 +214,12 @@ class EmailQueueService {
 
     return {
       success: true,
+      queued: enqueuedCount,
+      skipped: skippedCount,
+      failed: 0,
       count: enqueuedCount,
-      totalMatched: certificates.length
+      totalMatched: certificates.length,
+      data: resultData
     };
   }
 
@@ -224,45 +263,55 @@ class EmailQueueService {
    * Process a single queued certificate item.
    */
   async processItem(certificateId) {
-    const certificate = await Certificate.findById(certificateId);
-    if (!certificate) return;
+    try {
+      const certificate = await Certificate.findById(certificateId);
+      if (!certificate) return;
 
-    if (!certificate.recipientEmail || certificate.recipientEmail.trim() === "") {
-      await this.markEmailFailed(certificateId, "Recipient email is required.");
-      this.stats.totalFailed += 1;
-      return;
-    }
+      if (!certificate.recipientEmail || certificate.recipientEmail.trim() === "") {
+        await this.markEmailFailed(certificateId, "Recipient email is required.");
+        this.stats.totalFailed += 1;
+        return;
+      }
 
-    if (!isValidEmail(certificate.recipientEmail)) {
-      await this.markEmailFailed(certificateId, "Please provide a valid recipient email address.");
-      this.stats.totalFailed += 1;
-      return;
-    }
+      if (!isValidEmail(certificate.recipientEmail)) {
+        await this.markEmailFailed(certificateId, "Please provide a valid recipient email address.");
+        this.stats.totalFailed += 1;
+        return;
+      }
 
-    if (!isEmailConfigured()) {
-      await this.markEmailFailed(certificateId, "Email service is not configured.");
-      this.stats.totalFailed += 1;
-      return;
-    }
+      if (!isEmailConfigured()) {
+        await this.markEmailFailed(certificateId, "Email service is not configured.");
+        this.stats.totalFailed += 1;
+        return;
+      }
 
-    await this.markEmailSending(certificateId);
+      await this.markEmailSending(certificateId);
 
-    // Foundation check: If PDF attachment generator is not yet attached, record status safely
-    const content = generateCertificateEmailContent(certificate);
+      // Generate personalized email content
+      const content = generateCertificateEmailContent(certificate);
 
-    const result = await sendCertificateEmail({
-      to: certificate.recipientEmail,
-      subject: content.subject,
-      text: content.text,
-      html: content.html,
-      attachments: [] // Will receive PDF buffer in later step
-    });
+      const result = await sendCertificateEmail({
+        to: certificate.recipientEmail,
+        subject: content.subject,
+        text: content.text,
+        html: content.html,
+        attachments: []
+      });
 
-    if (result.success) {
-      await this.markEmailSent(certificateId, result.messageId);
-      this.stats.totalProcessed += 1;
-    } else {
-      await this.markEmailFailed(certificateId, result.message || "Failed to deliver email.");
+      if (result.success) {
+        await this.markEmailSent(certificateId, result.messageId);
+        this.stats.totalProcessed += 1;
+      } else {
+        await this.markEmailFailed(certificateId, result.message || "Failed to deliver email.");
+        this.stats.totalFailed += 1;
+      }
+    } catch (err) {
+      console.error(`Error processing queued email for ${certificateId}:`, err);
+      try {
+        await this.markEmailFailed(certificateId, err.message || "Unexpected queue processing error");
+      } catch (saveErr) {
+        console.error("Failed to mark email status failed:", saveErr);
+      }
       this.stats.totalFailed += 1;
     }
   }

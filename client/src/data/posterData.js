@@ -394,6 +394,42 @@ const posterData = [
     },
     layoutVariant: "bootcamp",
     imageMode: "standard"
+  },
+  {
+    id: "ppsu-expert-talk",
+    name: "PPSU Expert Talk Poster",
+    posterFormat: "ppsu-expert-talk",
+    category: "Expert Talk",
+    description: "Official PPSU branded Expert Talk poster with fixed university header, custom theme, and speaker spotlight.",
+    type: "poster",
+    designKey: "ppsu-expert-talk",
+    templateStyle: "PPSU Expert Talk Poster",
+    background: "/poster-themes/ppsu-expert-talk/Untitled-design.png",
+    backgroundClass: "from-blue-950 via-slate-900 to-indigo-950",
+    accentClass: "bg-amber-500 text-slate-950",
+    headingClass: "from-amber-300 via-yellow-200 to-white",
+    badgeClass: "bg-amber-100 text-amber-800 border-amber-200",
+    previewClass: "border-amber-300 bg-amber-50",
+    theme: {
+      backgroundStart: "#0a1931",
+      backgroundEnd: "#040d1a",
+      backgroundMid: "#081b3a",
+      primaryText: "#ffffff",
+      secondaryText: "#e2e8f0",
+      accent: "#f59e0b",
+      accentSecondary: "#fbbf24",
+      headingGradientStart: "#fde047",
+      headingGradientEnd: "#ffffff",
+      cardBackground: "#0b1e3b",
+      cardBackgroundOpacity: 0.9,
+      border: "rgba(255, 255, 255, 0.2)",
+      ctaBackground: "#f59e0b",
+      ctaText: "#0f172a",
+      badgeBackground: "#1e3a8a",
+      badgeText: "#dbeafe"
+    },
+    layoutVariant: "ppsu-expert-talk",
+    imageMode: "speaker"
   }
 ];
 

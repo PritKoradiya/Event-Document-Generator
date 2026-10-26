@@ -50,5 +50,6 @@ const uploadPosterAssets = multer({
 
 export default uploadPosterAssets.fields([
   { name: "posterImage", maxCount: 1 },
-  { name: "organizationLogo", maxCount: 1 }
+  { name: "organizationLogo", maxCount: 1 },
+  { name: "speakerPhoto", maxCount: 1 }
 ]);

@@ -77,10 +77,34 @@ export async function inlinePosterSvgImages(svgElement) {
 }
 
 /**
+ * Extracts width and height from an SVG element's viewBox or attributes.
+ */
+export function getSvgDimensions(svgElement) {
+  if (!svgElement) return { width: 1080, height: 1350 };
+
+  const viewBox = svgElement.getAttribute("viewBox");
+  if (viewBox) {
+    const parts = viewBox.trim().split(/[\s,]+/).map(Number);
+    if (parts.length === 4 && !isNaN(parts[2]) && !isNaN(parts[3]) && parts[2] > 0 && parts[3] > 0) {
+      return { width: parts[2], height: parts[3] };
+    }
+  }
+
+  const widthAttr = parseFloat(svgElement.getAttribute("width"));
+  const heightAttr = parseFloat(svgElement.getAttribute("height"));
+  if (!isNaN(widthAttr) && !isNaN(heightAttr) && widthAttr > 0 && heightAttr > 0) {
+    return { width: widthAttr, height: heightAttr };
+  }
+
+  return { width: 1080, height: 1350 };
+}
+
+/**
  * Serializes SVG element into clean XML string with inlined images.
  */
 export async function serializePosterSvg(svgElement) {
   const clonedSvg = await inlinePosterSvgImages(svgElement);
+  const { width, height } = getSvgDimensions(svgElement);
 
   if (!clonedSvg.getAttribute("xmlns")) {
     clonedSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -89,9 +113,9 @@ export async function serializePosterSvg(svgElement) {
     clonedSvg.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
   }
 
-  clonedSvg.setAttribute("width", "1080");
-  clonedSvg.setAttribute("height", "1350");
-  clonedSvg.setAttribute("viewBox", "0 0 1080 1350");
+  clonedSvg.setAttribute("width", String(width));
+  clonedSvg.setAttribute("height", String(height));
+  clonedSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
   const serializer = new XMLSerializer();
   return serializer.serializeToString(clonedSvg);
@@ -100,11 +124,25 @@ export async function serializePosterSvg(svgElement) {
 /**
  * Draws serialized SVG string onto a canvas at high resolution.
  */
-export function posterSvgToCanvas(svgString, scale = 2) {
+export function posterSvgToCanvas(svgString, scale = 2, customWidth, customHeight) {
   return new Promise((resolve, reject) => {
+    let width = customWidth;
+    let height = customHeight;
+
+    if (!width || !height) {
+      const match = svgString.match(/viewBox=["']0\s+0\s+([0-9.]+)\s+([0-9.]+)["']/i);
+      if (match) {
+        width = parseFloat(match[1]);
+        height = parseFloat(match[2]);
+      } else {
+        width = 1080;
+        height = 1350;
+      }
+    }
+
     const canvas = document.createElement("canvas");
-    canvas.width = 1080 * scale;
-    canvas.height = 1350 * scale;
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
 
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = true;
@@ -130,7 +168,7 @@ export function posterSvgToCanvas(svgString, scale = 2) {
 }
 
 /**
- * Downloads SVG poster as a high-resolution PNG file (1080 x 1350 native, 2160 x 2700 scale 2).
+ * Downloads SVG poster as a high-resolution PNG file.
  */
 export async function downloadPosterPng(svgRefOrElement, fileName = "poster.png") {
   try {
@@ -144,8 +182,9 @@ export async function downloadPosterPng(svgRefOrElement, fileName = "poster.png"
       await document.fonts.ready;
     }
 
+    const { width, height } = getSvgDimensions(svgElement);
     const serializedSvg = await serializePosterSvg(svgElement);
-    const canvas = await posterSvgToCanvas(serializedSvg, 2);
+    const canvas = await posterSvgToCanvas(serializedSvg, 2, width, height);
 
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
@@ -187,9 +226,10 @@ export async function generatePosterPdfBlob(svgRefOrElement) {
     await document.fonts.ready;
   }
 
+  const { width, height } = getSvgDimensions(svgElement);
   const serializedSvg = await serializePosterSvg(svgElement);
-  const canvas = await posterSvgToCanvas(serializedSvg, 2);
-  const imageData = canvas.toDataURL("image/jpeg", 0.9);
+  const canvas = await posterSvgToCanvas(serializedSvg, 2, width, height);
+  const imageData = canvas.toDataURL("image/jpeg", 0.95);
 
   const pdf = new jsPDF({
     orientation: "portrait",
@@ -202,12 +242,21 @@ export async function generatePosterPdfBlob(svgRefOrElement) {
   const pageHeight = 297; // A4 height in mm
   const margin = 5; // 5mm margin
   const targetWidth = pageWidth - margin * 2; // 200mm
-  const targetHeight = targetWidth * (1350 / 1080); // 250mm (4:5 ratio)
+  const targetHeight = targetWidth * (height / width);
 
-  const xOffset = margin; // 5mm
-  const yOffset = (pageHeight - targetHeight) / 2; // 23.5mm
+  let finalWidth = targetWidth;
+  let finalHeight = targetHeight;
+  const maxHeight = pageHeight - margin * 2;
 
-  pdf.addImage(imageData, "JPEG", xOffset, yOffset, targetWidth, targetHeight, undefined, "FAST");
+  if (finalHeight > maxHeight) {
+    finalHeight = maxHeight;
+    finalWidth = finalHeight * (width / height);
+  }
+
+  const xOffset = (pageWidth - finalWidth) / 2;
+  const yOffset = (pageHeight - finalHeight) / 2;
+
+  pdf.addImage(imageData, "JPEG", xOffset, yOffset, finalWidth, finalHeight, undefined, "FAST");
   return pdf;
 }
 

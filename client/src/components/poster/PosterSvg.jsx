@@ -4,6 +4,7 @@ import PosterSvgFrame from "./PosterSvgFrame.jsx";
 import PosterSvgMedia from "./PosterSvgMedia.jsx";
 import PosterSvgContent from "./PosterSvgContent.jsx";
 import PosterSvgForeground from "./PosterSvgForeground.jsx";
+import PpsuExpertTalkPosterSvg from "./PpsuExpertTalkPosterSvg.jsx";
 import { validatePosterLayout } from "../../utils/validatePosterLayout.js";
 
 const templateMap = posterData.reduce((acc, item) => {
@@ -15,6 +16,11 @@ const templateMap = posterData.reduce((acc, item) => {
 const PosterSvg = forwardRef(function PosterSvg(
   {
     id = "poster-svg-canvas",
+    posterFormat = "standard",
+    eventType = "",
+    mainTitle = "",
+    speaker = "",
+    speakerPhoto = "",
     posterTitle = "ANNUAL INNOVATION & TECH SUMMIT 2026",
     tagline = "Empowering Next-Gen Innovators & Leaders",
     category = "Seminar",
@@ -35,6 +41,32 @@ const PosterSvg = forwardRef(function PosterSvg(
   },
   ref
 ) {
+  const isPpsuFormat =
+    posterFormat === "ppsu-expert-talk" ||
+    designKey === "ppsu-expert-talk" ||
+    templateStyle === "PPSU Expert Talk Poster";
+
+  if (isPpsuFormat) {
+    return (
+      <PpsuExpertTalkPosterSvg
+        ref={ref}
+        id={id}
+        eventType={eventType || (category === "Seminar" ? "Expert Talk" : category)}
+        mainTitle={mainTitle || posterTitle}
+        eventDate={eventDate}
+        eventTime={eventTime}
+        venue={venue}
+        speaker={
+          speaker ||
+          (speakerName
+            ? `${speakerName}${speakerDesignation ? `\n${speakerDesignation}` : ""}`
+            : "")
+        }
+        speakerPhoto={speakerPhoto}
+      />
+    );
+  }
+
   const currentConfig =
     templateMap[designKey] ||
     templateMap[templateStyle] ||

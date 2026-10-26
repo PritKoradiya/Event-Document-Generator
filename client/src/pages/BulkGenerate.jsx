@@ -261,12 +261,15 @@ function BulkGenerate() {
       (c) => c.recipientEmail && c.recipientEmail.trim() !== "" && !isValidEmail(c.recipientEmail)
     );
     const withoutEmail = total - withEmail.length;
+    const unsentWithEmail = withEmail.filter((c) => c.emailStatus !== "sent");
 
     return {
       total,
       withEmailCount: withEmail.length,
       withoutEmailCount: withoutEmail,
       withEmailCerts: withEmail,
+      unsentWithEmail,
+      unsentWithEmailCount: unsentWithEmail.length,
       sentCerts,
       sentCount: sentCerts.length,
       failedCerts,
@@ -758,19 +761,52 @@ function BulkGenerate() {
 
   // Helper: Renders an individual certificate to offscreen SVG and returns its PDF payload
   const renderCertificatePdfPayload = async (certificate) => {
-    setExportCertificate(certificate);
-    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 60)));
+    const mergedCert = {
+      ...commonDetails,
+      ...certificate,
+      certificateCategory: certificate.certificateCategory || commonDetails.certificateCategory,
+      templateStyle: certificate.templateStyle || commonDetails.templateStyle,
+      singleSignaturePosition: certificate.singleSignaturePosition || commonDetails.singleSignaturePosition
+    };
+
+    setExportCertificate(mergedCert);
+
+    // Wait until the offscreen SVG element matches this exact participant
+    const targetParticipant = String(certificate.participantName || "").trim();
+    const targetCertId = String(certificate.certificateId || certificate._id || "").trim();
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < 3000) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (batchSvgRef.current) {
+        const renderedName = String(batchSvgRef.current.getAttribute("data-participant-name") || "").trim();
+        const renderedId = String(batchSvgRef.current.getAttribute("data-certificate-id") || "").trim();
+        if (
+          (targetParticipant && renderedName === targetParticipant) ||
+          (targetCertId && renderedId === targetCertId)
+        ) {
+          // Extra frame for image inlining and Canvas paint stability
+          await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 30)));
+          break;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
 
     if (!batchSvgRef.current) {
       throw new Error("Certificate canvas renderer is not ready.");
     }
 
-    return await prepareCertificatePdfPayload(batchSvgRef.current, certificate);
+    return await prepareCertificatePdfPayload(batchSvgRef.current, mergedCert);
   };
 
   // Handle Send All Execution (Sequential, Duplicate-Protected & Memory Safe)
   const handleExecuteSendAll = async (targetCertificates = null) => {
-    const certsPool = targetCertificates || generatedCertificates;
+    // If targetCertificates is provided (e.g. Retry Failed), use targetCertificates
+    // Otherwise for Send All, pick generatedCertificates that are not already sent
+    const isRetry = Boolean(targetCertificates);
+    const basePool = targetCertificates || generatedCertificates;
+    const certsPool = isRetry ? basePool : basePool.filter((c) => c.emailStatus !== "sent");
 
     // Filter certificates with valid emails
     const certsToSend = certsPool.filter((c) => {
@@ -783,7 +819,11 @@ function BulkGenerate() {
     const initialSkipped = skippedMissing + skippedInvalid;
 
     if (certsToSend.length === 0) {
-      setError("No recipient email addresses are available to send.");
+      if (!isRetry && emailStats.sentCount > 0 && emailStats.sentCount === emailStats.withEmailCount) {
+        setSuccess("All certificates have already been sent.");
+      } else {
+        setError("No recipient email addresses are available to send.");
+      }
       setIsSendAllModalOpen(false);
       return;
     }
@@ -813,7 +853,7 @@ function BulkGenerate() {
         sent: 0,
         failed: 0,
         skipped: initialSkipped,
-        message: `Preparing to send ${totalCount} certificate emails...`
+        message: `Preparing to send ${totalCount} certificate email${totalCount > 1 ? "s" : ""}...`
       });
 
       for (let i = 0; i < totalCount; i++) {
@@ -874,6 +914,11 @@ function BulkGenerate() {
                   : c
               )
             );
+
+            if (response?.code === "EMAIL_NOT_CONFIGURED" || response?.message?.includes("not configured")) {
+              setError("Email service is not configured yet. Please configure SMTP credentials in server/.env.");
+              break;
+            }
           }
         } catch (err) {
           failedCount += 1;
@@ -893,7 +938,7 @@ function BulkGenerate() {
         } finally {
           // Immediate memory cleanup
           setExportCertificate(null);
-          await new Promise((resolve) => setTimeout(resolve, 80));
+          await new Promise((resolve) => setTimeout(resolve, 60));
         }
       }
 
@@ -1986,12 +2031,14 @@ function BulkGenerate() {
                   isSendingAll ||
                   isPreparingZip ||
                   isGenerating ||
-                  emailStats.withEmailCount === 0
+                  emailStats.unsentWithEmailCount === 0
                 }
                 title={
-                  emailStats.withEmailCount === 0
-                    ? "No recipient email addresses are available."
-                    : `Send certificates to ${emailStats.withEmailCount} recipients`
+                  emailStats.unsentWithEmailCount === 0
+                    ? emailStats.sentCount > 0 && emailStats.sentCount === emailStats.withEmailCount
+                      ? "All certificates have already been sent."
+                      : "No recipient email addresses are available."
+                    : `Send certificates to ${emailStats.unsentWithEmailCount} recipients`
                 }
                 className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-black text-white shadow-xs hover:from-blue-700 hover:to-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
@@ -1999,7 +2046,9 @@ function BulkGenerate() {
                 <span>
                   {isSendingAll
                     ? "Sending All..."
-                    : `Send All (${emailStats.withEmailCount})`}
+                    : emailStats.unsentWithEmailCount === 0 && emailStats.sentCount > 0 && emailStats.sentCount === emailStats.withEmailCount
+                    ? "All Sent"
+                    : `Send All (${emailStats.unsentWithEmailCount})`}
                 </span>
               </button>
 
@@ -2242,18 +2291,22 @@ function BulkGenerate() {
 
             <div className="space-y-3 text-xs leading-relaxed text-slate-600 font-medium">
               <p className="text-sm font-bold text-slate-900">
-                <span className="font-black text-blue-700">{emailStats.withEmailCount}</span> of{" "}
-                <span className="font-black text-slate-900">{emailStats.total}</span> certificates have valid recipient emails.
+                <span className="font-black text-blue-700">{emailStats.unsentWithEmailCount}</span> certificate{emailStats.unsentWithEmailCount > 1 ? "s" : ""} will be sent to valid recipient emails.
               </p>
 
               <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 space-y-1 text-slate-700">
                 <p className="font-bold text-blue-950">• Each recipient will receive only their own personalized certificate PDF.</p>
-                {emailStats.withoutEmailCount > 0 && (
-                  <p className="text-amber-800 font-semibold">
-                    • <span className="font-bold">{emailStats.withoutEmailCount} certificates without a valid email address</span> will be skipped.
+                {emailStats.sentCount > 0 && (
+                  <p className="text-emerald-800 font-semibold">
+                    • <span className="font-bold">{emailStats.sentCount} already-sent certificate{emailStats.sentCount > 1 ? "s" : ""}</span> will not be re-sent.
                   </p>
                 )}
-                <p className="text-slate-600">• Certificates are rendered and dispatched sequentially (1 at a time) to ensure browser and mail provider stability.</p>
+                {emailStats.withoutEmailCount > 0 && (
+                  <p className="text-amber-800 font-semibold">
+                    • <span className="font-bold">{emailStats.withoutEmailCount} certificate{emailStats.withoutEmailCount > 1 ? "s" : ""} without a valid email address</span> will be skipped.
+                  </p>
+                )}
+                <p className="text-slate-600">• Certificates are rendered and dispatched sequentially with controlled pacing to ensure provider stability.</p>
               </div>
             </div>
 
@@ -2269,10 +2322,10 @@ function BulkGenerate() {
               <button
                 type="button"
                 onClick={() => handleExecuteSendAll()}
-                disabled={isSendingAll}
+                disabled={isSendingAll || emailStats.unsentWithEmailCount === 0}
                 className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-xs font-black text-white hover:from-blue-700 hover:to-indigo-700 transition active:scale-98 shadow-xs disabled:opacity-50"
               >
-                {isSendingAll ? "Dispatching..." : `Send ${emailStats.withEmailCount} Certificates`}
+                {isSendingAll ? "Dispatching..." : `Send ${emailStats.unsentWithEmailCount} Certificate${emailStats.unsentWithEmailCount > 1 ? "s" : ""}`}
               </button>
             </div>
           </div>

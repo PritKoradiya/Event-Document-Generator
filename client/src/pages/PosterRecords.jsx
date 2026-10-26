@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import PosterPreview from "../components/PosterPreview.jsx";
 import { getPosters, deletePoster } from "../services/posterApi.js";
 import { downloadPosterPng, downloadPosterPdf } from "../utils/downloadPoster.js";
@@ -71,10 +71,17 @@ function PosterRecords() {
     }
   };
 
+  const navigate = useNavigate();
+
+  const handleEdit = (poster) => {
+    navigate("/create-poster", { state: { editPoster: poster } });
+  };
+
   const handleDownloadPng = (poster) => {
     setSelectedPoster(poster);
     setTimeout(() => {
-      const fileName = `Poster_${poster.posterTitle}_${poster.posterId || "POSTER-2026-0001"}.png`;
+      const title = poster.mainTitle || poster.posterTitle || "Poster";
+      const fileName = `Poster_${title}_${poster.posterId || "POSTER-2026-0001"}.png`;
       downloadPosterPng(posterSvgRef.current, fileName);
     }, 150);
   };
@@ -82,23 +89,27 @@ function PosterRecords() {
   const handleDownloadPdf = (poster) => {
     setSelectedPoster(poster);
     setTimeout(() => {
-      const fileName = `Poster_${poster.posterTitle}_${poster.posterId || "POSTER-2026-0001"}.pdf`;
+      const title = poster.mainTitle || poster.posterTitle || "Poster";
+      const fileName = `Poster_${title}_${poster.posterId || "POSTER-2026-0001"}.pdf`;
       downloadPosterPdf(posterSvgRef.current, fileName);
     }, 150);
   };
 
   const filteredPosters = posters.filter((p) => {
     const query = searchQuery.toLowerCase();
+    const title = (p.mainTitle || p.posterTitle || "").toLowerCase();
     const matchesQuery =
-      p.posterTitle?.toLowerCase().includes(query) ||
-      p.organizerName?.toLowerCase().includes(query) ||
+      title.includes(query) ||
+      (p.organizerName || "").toLowerCase().includes(query) ||
+      (p.speaker || "").toLowerCase().includes(query) ||
       (p.posterId || "").toLowerCase().includes(query);
 
     const matchesStatus =
       statusFilter === "All" || p.status?.toLowerCase() === statusFilter.toLowerCase();
 
+    const cat = (p.eventType || p.category || "").toLowerCase();
     const matchesCategory =
-      categoryFilter === "All" || p.category?.toLowerCase() === categoryFilter.toLowerCase();
+      categoryFilter === "All" || cat === categoryFilter.toLowerCase();
 
     return matchesQuery && matchesStatus && matchesCategory;
   });
@@ -145,7 +156,7 @@ function PosterRecords() {
         <div className="grid gap-3 sm:grid-cols-3">
           <input
             type="text"
-            placeholder="Search by title, organizer, or ID..."
+            placeholder="Search by title, organizer, speaker, or ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={inputClass}
@@ -235,6 +246,9 @@ function PosterRecords() {
               <tbody className="divide-y divide-slate-100">
                 {filteredPosters.map((poster) => {
                   const isSelected = selectedPoster && (selectedPoster._id || selectedPoster.id) === (poster._id || poster.id);
+                  const displayTitle = poster.mainTitle || poster.posterTitle || "Untitled Poster";
+                  const displayCategory = poster.eventType || poster.category || "Event";
+
                   return (
                     <tr
                       key={poster._id || poster.id}
@@ -243,10 +257,10 @@ function PosterRecords() {
                       }`}
                     >
                       <td className="py-3.5 px-4 font-bold text-slate-950 min-w-[180px]">
-                        {poster.posterTitle}
+                        {displayTitle}
                       </td>
                       <td className="py-3.5 px-4 font-medium text-slate-600 whitespace-nowrap">
-                        {poster.category}
+                        {displayCategory}
                       </td>
                       <td className="py-3.5 px-4 font-medium text-slate-600 whitespace-nowrap">
                         {poster.eventDate}
@@ -271,6 +285,12 @@ function PosterRecords() {
                             }`}
                           >
                             View
+                          </button>
+                          <button
+                            onClick={() => handleEdit(poster)}
+                            className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 transition"
+                          >
+                            Edit
                           </button>
                           <button
                             onClick={() => handleDownloadPng(poster)}
@@ -307,9 +327,15 @@ function PosterRecords() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
             <div>
               <span className="text-xs font-black uppercase tracking-wider text-blue-600">Active Document View</span>
-              <h3 className="text-xl font-black text-slate-950 font-sans">{selectedPoster.posterTitle}</h3>
+              <h3 className="text-xl font-black text-slate-950 font-sans">{selectedPoster.mainTitle || selectedPoster.posterTitle}</h3>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleEdit(selectedPoster)}
+                className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-slate-950 hover:bg-amber-400 transition shadow-xs"
+              >
+                Edit Poster
+              </button>
               <button
                 onClick={() => handleDownloadPng(selectedPoster)}
                 className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700 transition shadow-xs"
@@ -329,6 +355,11 @@ function PosterRecords() {
             <PosterPreview
               ref={posterSvgRef}
               id="poster-preview-record-svg"
+              posterFormat={selectedPoster.posterFormat || (selectedPoster.designKey === "ppsu-expert-talk" ? "ppsu-expert-talk" : "standard")}
+              eventType={selectedPoster.eventType}
+              mainTitle={selectedPoster.mainTitle}
+              speaker={selectedPoster.speaker}
+              speakerPhoto={selectedPoster.speakerPhoto}
               posterTitle={selectedPoster.posterTitle}
               tagline={selectedPoster.tagline}
               category={selectedPoster.category}

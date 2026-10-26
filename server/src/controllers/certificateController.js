@@ -959,8 +959,12 @@ export const sendAllCertificateEmails = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Queued ${result.count} certificates for email sending.`,
-      count: result.count
+      message: `Queued ${result.queued || result.count} certificates for email sending.`,
+      queued: result.queued ?? result.count ?? 0,
+      skipped: result.skipped ?? 0,
+      failed: result.failed ?? 0,
+      count: result.queued ?? result.count ?? 0,
+      data: result.data || []
     });
   } catch (error) {
     console.error("sendAllCertificateEmails error:", error);

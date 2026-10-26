@@ -442,6 +442,43 @@ test("sendAllCertificateEmails enforces max 500 limit and queues valid requests"
   const emptyRes = createResponse();
   await sendAllCertificateEmails({ body: { certificateIds: [] } }, emptyRes);
   assert.equal(emptyRes.statusCode, 400);
+
+  const originalReadyState = mongoose.connection.readyState;
+  const originalFind = Certificate.find;
+  const originalUpdateMany = Certificate.updateMany;
+
+  mongoose.connection.readyState = 1;
+  const mockCerts = [
+    { _id: new mongoose.Types.ObjectId(), certificateId: "CERT-001", recipientEmail: "prit@ppsu.ac.in", emailStatus: "not-sent" },
+    { _id: new mongoose.Types.ObjectId(), certificateId: "CERT-002", recipientEmail: "", emailStatus: "not-sent" },
+    { _id: new mongoose.Types.ObjectId(), certificateId: "CERT-003", recipientEmail: "invalid-email@", emailStatus: "not-sent" }
+  ];
+
+  Certificate.find = () => Promise.resolve(mockCerts);
+  Certificate.updateMany = async () => ({ modifiedCount: 1 });
+
+  try {
+    const validRes = createResponse();
+    await sendAllCertificateEmails(
+      {
+        body: {
+          certificateIds: ["CERT-001", "CERT-002", "CERT-003", "CERT-NOTFOUND"]
+        }
+      },
+      validRes
+    );
+
+    assert.equal(validRes.statusCode, 200);
+    assert.equal(validRes.body.success, true);
+    assert.equal(validRes.body.queued, 1);
+    assert.equal(validRes.body.skipped, 3); // missing email + invalid email + not found
+    assert.equal(validRes.body.failed, 0);
+    assert.equal(Array.isArray(validRes.body.data), true);
+  } finally {
+    Certificate.find = originalFind;
+    Certificate.updateMany = originalUpdateMany;
+    mongoose.connection.readyState = originalReadyState;
+  }
 });
 
 test("emailQueueService maintains queue stats and concurrency limits", () => {
